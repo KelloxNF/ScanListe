@@ -45,8 +45,23 @@ object Csv {
         return "${safe}_$stamp.csv"
     }
 
-    private fun esc(s: String): String =
-        if (s.any { it == ';' || it == '"' || it == '\n' || it == '\r' || it == ',' }) {
+    private val plainNumber = Regex("^[+-]?\\d+([.,]\\d+)?$")
+
+    /**
+     * Schutz vor Formel-Einschleusung: Excel würde Zellen, die mit = + - @ beginnen,
+     * als Formel ausführen (z. B. aus einem manipulierten QR-Code). Solche Werte bekommen
+     * ein vorangestelltes Hochkomma, damit Excel sie als Text anzeigt. Reine Zahlen bleiben unverändert.
+     */
+    private fun defuse(s: String): String {
+        if (s.isEmpty()) return s
+        val dangerous = s[0] in "=+-@\t\r" || s[0] == '＝' || s[0] == '＋' || s[0] == '－' || s[0] == '＠'
+        return if (dangerous && !plainNumber.matches(s)) "'$s" else s
+    }
+
+    private fun esc(raw: String): String {
+        val s = defuse(raw)
+        return if (s.any { it == ';' || it == '"' || it == '\n' || it == '\r' || it == ',' }) {
             "\"" + s.replace("\"", "\"\"") + "\""
         } else s
+    }
 }
