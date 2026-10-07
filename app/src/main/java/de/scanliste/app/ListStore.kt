@@ -6,20 +6,42 @@ import org.json.JSONObject
 import java.io.File
 import java.util.UUID
 
-/** Speichert jede Liste als JSON-Datei im privaten App-Speicher. */
+/** Kurzinfo zu einer Liste für die Übersicht, ohne die ganze Liste zu laden. */
+data class ListInfo(
+    val id: String,
+    val name: String,
+    val columns: List<String>,
+    val count: Int,
+    val updated: Long,
+)
+
+/**
+ * Speichert jede Liste als JSON-Datei im privaten App-Speicher (lists/<id>.json)
+ * und daneben eine kleine Kurzinfo (lists/meta/<id>.json), damit die Übersicht
+ * auch bei vielen großen Listen sofort lädt.
+ */
 object ListStore {
 
     private fun dir(ctx: Context): File = File(ctx.filesDir, "lists").apply { mkdirs() }
 
+    private fun metaDir(ctx: Context): File = File(dir(ctx), "meta").apply { mkdirs() }
+
     private fun file(ctx: Context, id: String) = File(dir(ctx), "$id.json")
+
+    private fun metaFile(ctx: Context, id: String) = File(metaDir(ctx), "$id.json")
 
     fun newId(): String = UUID.randomUUID().toString()
 
-    fun all(ctx: Context): List<ScanList> =
-        dir(ctx).listFiles { f -> f.extension == "json" }
-            ?.mapNotNull { f -> runCatching { fromJson(JSONObject(f.readText())) }.getOrNull() }
-            ?.sortedByDescending { it.updated }
-            ?: emptyList()
+    /** Kurzinfos aller Listen, neueste zuerst. Lädt nur die kleinen Meta-Dateien. */
+    fun infos(ctx: Context): List<ListInfo> {
+        val files = dir(ctx).listFiles { f -> f.isFile && f.extension == "json" } ?: return emptyList()
+        return files.mapNotNull { f ->
+            val id = f.nameWithoutExtension
+            val meta = metaFile(ctx, id)
+            val fromMeta = if (meta.exists() && meta.lastModified() >= f.lastModified()) readMeta(meta) else null
+            fromMeta ?: rebuildMeta(ctx, f)
+        }.sortedByDescending { it.updated }
+    }
 
     fun load(ctx: Context, id: String): ScanList? {
         val f = file(ctx, id)
@@ -27,18 +49,51 @@ object ListStore {
         return runCatching { fromJson(JSONObject(f.readText())) }.getOrNull()
     }
 
+    /** Wirft eine Exception, wenn nicht gespeichert werden konnte (z. B. Speicher voll). */
     fun save(ctx: Context, list: ScanList) {
-        val target = file(ctx, list.id)
-        val tmp = File(target.parentFile, "${list.id}.tmp")
-        tmp.writeText(toJson(list).toString())
-        if (!tmp.renameTo(target)) {
-            target.writeText(tmp.readText())
-            tmp.delete()
-        }
+        writeAtomic(file(ctx, list.id), toJson(list).toString())
+        runCatching { writeMeta(ctx, list) }
     }
 
     fun delete(ctx: Context, id: String) {
         file(ctx, id).delete()
+        metaFile(ctx, id).delete()
+    }
+
+    // ---------- intern ----------
+
+    private fun writeAtomic(target: File, text: String) {
+        val tmp = File(target.parentFile, target.name + ".tmp")
+        tmp.writeText(text)
+        if (!tmp.renameTo(target)) {
+            target.writeText(text)
+            tmp.delete()
+        }
+    }
+
+    private fun infoOf(list: ScanList) = ListInfo(list.id, list.name, list.columns.toList(), list.valueCount(), list.updated)
+
+    private fun writeMeta(ctx: Context, list: ScanList) {
+        val o = JSONObject().apply {
+            put("id", list.id)
+            put("name", list.name)
+            put("columns", JSONArray(list.columns))
+            put("count", list.valueCount())
+            put("updated", list.updated)
+        }
+        writeAtomic(metaFile(ctx, list.id), o.toString())
+    }
+
+    private fun readMeta(f: File): ListInfo? = runCatching {
+        val o = JSONObject(f.readText())
+        val cols = o.getJSONArray("columns").let { a -> List(a.length()) { a.getString(it) } }
+        ListInfo(o.getString("id"), o.getString("name"), cols, o.getInt("count"), o.getLong("updated"))
+    }.getOrNull()
+
+    private fun rebuildMeta(ctx: Context, f: File): ListInfo? {
+        val list = runCatching { fromJson(JSONObject(f.readText())) }.getOrNull() ?: return null
+        runCatching { writeMeta(ctx, list) }
+        return infoOf(list)
     }
 
     private fun toJson(list: ScanList): JSONObject = JSONObject().apply {

@@ -25,6 +25,8 @@ object DataWedge {
             putBundle("PARAM_LIST", Bundle().apply {
                 putString("scanner_selection", "auto")
                 putString("scanner_input_enabled", "true")
+                // DataWedge-eigenen Piepton aus: Rückmeldung (OK / Duplikat) gibt nur die App.
+                putString("decode_audio_feedback_uri", "")
                 putString("decoder_ean13", "true")
                 putString("decoder_ean8", "true")
                 putString("decoder_upca", "true")
@@ -61,16 +63,19 @@ object DataWedge {
             putStringArray("ACTIVITY_LIST", arrayOf("*"))
         }
 
-        val profile = Bundle().apply {
-            putString("PROFILE_NAME", PROFILE_NAME)
-            putString("PROFILE_ENABLED", "true")
-            putString("CONFIG_MODE", "CREATE_IF_NOT_EXIST")
-            putParcelableArrayList("PLUGIN_CONFIG", arrayListOf(barcode, intentOut, keystroke))
-            putParcelableArray("APP_LIST", arrayOf(app))
+        // Erst anlegen (falls noch nicht vorhanden), dann immer aktualisieren,
+        // damit Änderungen an der Konfiguration auch auf bestehenden Geräten ankommen.
+        for (mode in listOf("CREATE_IF_NOT_EXIST", "UPDATE")) {
+            val profile = Bundle().apply {
+                putString("PROFILE_NAME", PROFILE_NAME)
+                putString("PROFILE_ENABLED", "true")
+                putString("CONFIG_MODE", mode)
+                putParcelableArrayList("PLUGIN_CONFIG", arrayListOf(barcode, intentOut, keystroke))
+                putParcelableArray("APP_LIST", arrayOf(app))
+            }
+            // Auf Nicht-Zebra-Geräten passiert hier einfach nichts.
+            ctx.sendBroadcast(Intent(API_ACTION).putExtra("com.symbol.datawedge.api.SET_CONFIG", profile))
         }
-
-        // Auf Nicht-Zebra-Geräten passiert hier einfach nichts.
-        ctx.sendBroadcast(Intent(API_ACTION).putExtra("com.symbol.datawedge.api.SET_CONFIG", profile))
     }
 
     /** Macht aus "LABEL-TYPE-EAN13" ein lesbares "EAN13". */

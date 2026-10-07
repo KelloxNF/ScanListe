@@ -28,6 +28,13 @@ class ScanList(
     var updated: Long = created,
 ) {
 
+    /** Alle vorhandenen Werte, für eine sofortige Duplikatprüfung auch bei sehr großen Listen. */
+    private val values: HashSet<String> = HashSet<String>().also { set ->
+        rows.forEach { row -> row.cells.forEach { if (it.isNotEmpty()) set.add(it) } }
+    }
+
+    fun contains(value: String): Boolean = value in values
+
     /** Liefert die Position eines vorhandenen Werts oder null. */
     fun find(value: String): Pair<Int, Int>? {
         rows.forEachIndexed { r, row ->
@@ -50,7 +57,10 @@ class ScanList(
     fun add(raw: String): AddResult {
         val value = raw.trim()
         if (value.isEmpty()) return AddResult.Empty
-        find(value)?.let { (r, c) -> return AddResult.Duplicate(r, c) }
+        if (value in values) {
+            val (r, c) = find(value) ?: (0 to 0)
+            return AddResult.Duplicate(r, c)
+        }
 
         val now = System.currentTimeMillis()
         val (r, c) = nextSlot()
@@ -58,6 +68,7 @@ class ScanList(
             rows.add(ScanRow(MutableList(columns.size) { "" }, now))
         }
         rows[r].cells[c] = value
+        values.add(value)
         updated = now
         return AddResult.Added(r, c)
     }
@@ -72,6 +83,7 @@ class ScanList(
         }
         val value = last.cells[i]
         last.cells[i] = ""
+        values.remove(value)
         if (last.cells.all { it.isEmpty() }) rows.removeAt(rows.size - 1)
         updated = System.currentTimeMillis()
         return value
@@ -79,10 +91,11 @@ class ScanList(
 
     fun removeRow(index: Int) {
         if (index in rows.indices) {
+            rows[index].cells.forEach { values.remove(it) }
             rows.removeAt(index)
             updated = System.currentTimeMillis()
         }
     }
 
-    fun valueCount(): Int = rows.sumOf { row -> row.cells.count { it.isNotEmpty() } }
+    fun valueCount(): Int = values.size
 }

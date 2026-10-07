@@ -33,7 +33,9 @@ oder per MDM (z. B. StageNow, SOTI) verteilen.
 ## Scanner (DataWedge)
 Die App legt beim ersten Start automatisch ein DataWedge-Profil „ScanListe“ an. Es schickt
 Scans per Intent (`de.scanliste.app.SCAN`) an die App und schaltet die Tastatur-Ausgabe ab.
-Es ist keine manuelle Einrichtung nötig.
+Es ist keine manuelle Einrichtung nötig. Der DataWedge-eigene Piepton ist im Profil abgeschaltet;
+die Rückmeldung (kurzer Piep = gespeichert, Fehlerton + Vibration = Duplikat) kommt nur von der App.
+Scans in der Listenübersicht werden nicht gespeichert, die App weist dann darauf hin.
 
 Falls die Scans nicht ankommen: DataWedge-App öffnen → Profil „ScanListe“ prüfen
 (Profil aktiv, zugeordnete App `de.scanliste.app`, Intent-Ausgabe an, Aktion

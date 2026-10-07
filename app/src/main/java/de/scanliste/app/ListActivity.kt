@@ -149,7 +149,13 @@ class ListActivity : AppCompatActivity() {
                 false
             }
             is AddResult.Added -> {
-                ListStore.save(this, list)
+                if (!persist()) {
+                    // Nicht gespeichert: Wert wieder herausnehmen, damit Anzeige und Datei übereinstimmen.
+                    list.undoLast()
+                    adapter.notifyDataSetChanged()
+                    updateStatus()
+                    return false
+                }
                 adapter.notifyDataSetChanged()
                 val typeInfo = if (type != null) " ($type)" else ""
                 showFeedback("✓ ${raw.trim()}$typeInfo", error = false)
@@ -159,6 +165,17 @@ class ListActivity : AppCompatActivity() {
                 true
             }
         }
+    }
+
+    /** Speichert die Liste. Bei einem Fehler (z. B. Speicher voll) Meldung statt Absturz. */
+    private fun persist(): Boolean = try {
+        ListStore.save(this, list)
+        true
+    } catch (e: Exception) {
+        showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", error = true)
+        tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
+        vibrate()
+        false
     }
 
     private fun colSuffix(col: Int) = if (list.columns.size > 1) ", Spalte \"${list.columns[col]}\"" else ""
@@ -200,7 +217,7 @@ class ListActivity : AppCompatActivity() {
             .setMessage(values)
             .setPositiveButton("Löschen") { _, _ ->
                 list.removeRow(pos)
-                ListStore.save(this, list)
+                persist()
                 adapter.notifyDataSetChanged()
                 updateStatus()
             }
@@ -214,10 +231,9 @@ class ListActivity : AppCompatActivity() {
             Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
             return
         }
-        ListStore.save(this, list)
         adapter.notifyDataSetChanged()
         updateStatus()
-        showFeedback("↶ Entfernt: $removed", error = false)
+        if (persist()) showFeedback("↶ Entfernt: $removed", error = false)
     }
 
     // ---------- Export ----------
