@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="table_header">#2A3038</color>
+    <color name="row_stripe">#1C2026</color>
+    <color name="next_cell">#664D8FE0</color>
+</resources>

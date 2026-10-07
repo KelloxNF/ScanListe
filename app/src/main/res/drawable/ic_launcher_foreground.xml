@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Barcode-Striche im sicheren Bereich (Mitte 66x66) -->
+    <path android:fillColor="#FFFFFF" android:pathData="M32,36h4v36h-4z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M39,36h2v36h-2z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M44,36h5v36h-5z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M52,36h2v36h-2z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M57,36h3v36h-3z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M63,36h5v36h-5z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M71,36h2v36h-2z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M75,36h1v36h-1z" />
+    <!-- Scanlinie -->
+    <path android:fillColor="#F2A900" android:pathData="M28,52.5h52v3h-52z" />
+</vector>
