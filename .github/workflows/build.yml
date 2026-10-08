@@ -35,6 +35,48 @@ jobs:
       - name: APK umbenennen
         run: cp app/build/outputs/apk/debug/app-debug.apk ScanListe.apk
 
+      - name: Offline-Prüfung der fertigen APK
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          AAPT2="$BT/aapt2"
+          PERMS=$("$AAPT2" dump permissions ScanListe.apk)
+          MANIFEST=$("$AAPT2" dump xmltree --file AndroidManifest.xml ScanListe.apk)
+          DEX=$(unzip -p ScanListe.apk 'classes*.dex' | strings)
+
+          NET_PERMS=$(echo "$PERMS" | grep -E "INTERNET|NETWORK_STATE|WIFI_STATE|ACCOUNTS|SYNC|AD_ID" || true)
+          BACKUP=$(echo "$MANIFEST" | grep -E "allowBackup|dataExtractionRules|fullBackupContent" || true)
+          COMPONENTS=$(echo "$MANIFEST" | grep -E "E: (activity|service|receiver|provider)" -A3 | grep -E "E: |A: android:name" | sed 's/^ *//' || true)
+          LIBS=$(echo "$DEX" | grep -oE "Lcom/google/(firebase|android/gms)[^;]*|Lokhttp3/[^;]*|Lretrofit2/[^;]*|Lio/sentry/[^;]*|Lcom/crashlytics/[^;]*" | sort -u | head -20 || true)
+          NETCODE=$(echo "$DEX" | grep -oE "Ljava/net/(HttpURLConnection|Socket|URLConnection)[^;]*|Ljavax/net/ssl/[^;]*" | sort -u || true)
+
+          {
+            echo "## Offline-Prüfung"
+            echo "### Berechtigungen der APK"
+            echo '```'; echo "$PERMS"; echo '```'
+            echo "### Netzwerk-/Konto-Berechtigungen"
+            echo "${NET_PERMS:-keine ✅}"
+            echo "### Backup-Einstellungen im Manifest"
+            echo '```'; echo "$BACKUP"; echo '```'
+            echo "### App-Komponenten (Activities, Dienste, Empfänger)"
+            echo '```'; echo "$COMPONENTS"; echo '```'
+            echo "### Tracking-/Cloud-/Netzwerk-Bibliotheken im Code"
+            echo "${LIBS:-keine ✅}"
+            echo "### Netzwerk-Klassen im Code"
+            echo "${NETCODE:-keine ✅}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          echo "::notice title=Berechtigungen::$(echo "$PERMS" | grep -oE "name='[^']+'" | tr '\n' ' ')"
+          echo "::notice title=Netzwerk-Berechtigungen::${NET_PERMS:-keine}"
+          echo "::notice title=Backup::$(echo "$BACKUP" | tr -s ' ' | tr '\n' ' ')"
+          echo "::notice title=Komponenten::$(echo "$COMPONENTS" | grep -oE '"[^"]+"' | tr '\n' ' ')"
+          echo "::notice title=Cloud-Bibliotheken::${LIBS:-keine}"
+          echo "::notice title=Netzwerk-Klassen::$(echo "${NETCODE:-keine}" | tr '\n' ' ')"
+
+          if [ -n "$NET_PERMS" ]; then
+            echo "::error::Die APK enthält Netzwerk- oder Konto-Berechtigungen. Bau abgebrochen."
+            exit 1
+          fi
+
       - name: Als Build-Artefakt hochladen
         uses: actions/upload-artifact@v4
         with:

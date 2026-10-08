@@ -16,6 +16,7 @@
         android:id="@+id/input_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:imeOptions="flagNoPersonalizedLearning"
         android:inputType="textCapSentences"
         android:maxLines="1" />
 
@@ -30,6 +31,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="z. B. Seriennummer, EAN"
+        android:imeOptions="flagNoPersonalizedLearning"
         android:inputType="textCapSentences"
         android:maxLines="1"
         android:text="Code" />

@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showRenameDialog(info: ListInfo) {
         val input = EditText(this).apply {
+            imeOptions = android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
             setText(info.name)
             selectAll()
         }

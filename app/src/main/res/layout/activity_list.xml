@@ -70,8 +70,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="Manuell eingeben"
-            android:imeOptions="actionDone"
-            android:inputType="text"
+            android:imeOptions="actionDone|flagNoPersonalizedLearning"
+            android:inputType="text|textNoSuggestions"
             android:maxLines="1" />
 
         <Button
