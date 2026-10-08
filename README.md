@@ -42,9 +42,11 @@ Falls die Scans nicht ankommen: DataWedge-App öffnen → Profil „ScanListe“
 `de.scanliste.app.SCAN`, Zustellung „Broadcast Intent“).
 
 ## Hinweis zu Excel
-Lange Zahlen wie Seriennummern oder EAN-Codes zeigt Excel beim Doppelklick auf eine CSV-Datei
-manchmal als `4,00638E+12` an. Die Datei selbst ist korrekt. Zum sauberen Öffnen in Excel
-nutzt man Daten → Aus Text/CSV und stellt die Spalte auf „Text“.
+Die gescannten Werte stehen in der CSV als `="WERT"`. Excel übernimmt sie dadurch als Text:
+lange Nummern erscheinen nicht als `4,00638E+12`, führende Nullen bleiben erhalten und nichts
+wird in ein Datum umgewandelt. Excel, LibreOffice und Google Tabellen verstehen das. Andere
+Programme (z. B. ein ERP-Import) sehen dagegen `="WERT"` wörtlich. Werte über 255 Zeichen
+werden normal geschrieben, weil Excel sie nicht in eine Formel aufnehmen kann.
 
 ## Aufbau
 | Datei | Inhalt |
