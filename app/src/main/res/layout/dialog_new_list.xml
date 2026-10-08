@@ -34,7 +34,7 @@
         android:imeOptions="flagNoPersonalizedLearning"
         android:inputType="textCapSentences"
         android:maxLines="1"
-        android:text="Code" />
+        android:text="Seriennummer" />
 
     <TextView
         android:layout_width="match_parent"

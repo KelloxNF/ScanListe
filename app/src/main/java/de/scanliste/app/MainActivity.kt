@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                     .split(',', ';')
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
-                    .ifEmpty { listOf("Code") }
+                    .ifEmpty { listOf("Seriennummer") }
                 val list = ScanList(
                     id = ListStore.newId(),
                     name = name,
