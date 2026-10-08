@@ -8,9 +8,6 @@ import java.util.Locale
 /**
  * CSV-Export im Format, das deutsches Excel direkt öffnet:
  * Semikolon als Trenner, UTF-8 mit BOM (für Umlaute), CRLF als Zeilenende.
- *
- * Die gescannten Werte werden als ="WERT" geschrieben. Excel behandelt sie dadurch als Text:
- * keine Darstellung wie 4,00638E+12, keine verlorenen führenden Nullen, keine Umwandlung in Datum.
  */
 object Csv {
 
@@ -28,10 +25,10 @@ object Csv {
         sb.append(header.joinToString(SEP) { esc(it) }).append("\r\n")
 
         list.rows.forEachIndexed { i, row ->
-            val cells = mutableListOf(esc((i + 1).toString()))
-            cells += row.cells.map { asText(it) }
-            if (list.withTimestamp) cells += esc(formatTime(row.time))
-            sb.append(cells.joinToString(SEP)).append("\r\n")
+            val line = mutableListOf((i + 1).toString())
+            line += row.cells
+            if (list.withTimestamp) line += formatTime(row.time)
+            sb.append(line.joinToString(SEP) { esc(it) }).append("\r\n")
         }
         return sb.toString()
     }
@@ -61,25 +58,8 @@ object Csv {
         return if (dangerous && !plainNumber.matches(s)) "'$s" else s
     }
 
-    /** Excel erlaubt in einer Formel höchstens 255 Zeichen pro Text. */
-    private const val MAX_TEXT_FORMULA = 255
-
-    /**
-     * Schreibt einen Wert so, dass Excel ihn als Text übernimmt: ="WERT".
-     * Anführungszeichen im Wert werden verdoppelt, der Wert kann also nicht aus dem Text
-     * ausbrechen (sicher gegen Formel-Einschleusung). Sehr lange Werte (z. B. große QR-Codes)
-     * passen nicht in eine Excel-Formel und werden normal geschrieben.
-     */
-    private fun asText(raw: String): String {
-        if (raw.isEmpty()) return ""
-        val v = raw.replace("\r\n", " ").replace('\r', ' ').replace('\n', ' ')
-        if (v.length > MAX_TEXT_FORMULA) return esc(v)
-        return quote("=\"" + v.replace("\"", "\"\"") + "\"")
-    }
-
-    private fun esc(raw: String): String = quote(defuse(raw))
-
-    private fun quote(s: String): String {
+    private fun esc(raw: String): String {
+        val s = defuse(raw)
         return if (s.any { it == ';' || it == '"' || it == '\n' || it == '\r' || it == ',' }) {
             "\"" + s.replace("\"", "\"\"") + "\""
         } else s
