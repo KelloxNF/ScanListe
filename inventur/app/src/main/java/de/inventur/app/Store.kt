@@ -200,9 +200,32 @@ object Settings {
     fun sender(ctx: Context): String = prefs(ctx).getString("sender", "") ?: ""
     fun footer(ctx: Context): String = prefs(ctx).getString("footer", "") ?: ""
     fun ceo(ctx: Context): String = prefs(ctx).getString("ceo", "") ?: ""
+    const val DEFAULT_ZONES = "Versand,Lager,Außenlager"
+
     fun zones(ctx: Context): List<String> =
-        (prefs(ctx).getString("zones", "A,B,C") ?: "A,B,C")
+        (prefs(ctx).getString("zones", DEFAULT_ZONES) ?: DEFAULT_ZONES)
             .split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinct().ifEmpty { listOf("A") }
+
+    /**
+     * Einmalige Umstellung der alten Bereichsnamen A/B/C auf Versand/Lager/Außenlager –
+     * in den Einstellungen und in bereits gespeicherten Zählungen.
+     */
+    fun migrateZones(ctx: Context) {
+        val p = prefs(ctx)
+        if (p.getBoolean("zones_migrated_v2", false)) return
+        val current = p.getString("zones", null)
+        if (current == null || current.replace(" ", "") == "A,B,C") {
+            val map = mapOf("A" to "Versand", "B" to "Lager", "C" to "Außenlager")
+            p.edit().putString("zones", DEFAULT_ZONES).apply()
+            for (inv in InventoryStore.all(ctx)) {
+                if (inv.counts.none { it.zone in map }) continue
+                val renamed = inv.counts.map { c -> map[c.zone]?.let { c.copy(zone = it) } ?: c }
+                inv.counts.clear(); inv.counts.addAll(renamed)
+                runCatching { InventoryStore.save(ctx, inv) }
+            }
+        }
+        p.edit().putBoolean("zones_migrated_v2", true).apply()
+    }
 
     fun save(ctx: Context, sender: String, footer: String, ceo: String, zones: String) {
         prefs(ctx).edit()

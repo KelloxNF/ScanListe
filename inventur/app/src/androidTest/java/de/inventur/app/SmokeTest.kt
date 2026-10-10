@@ -54,7 +54,7 @@ class SmokeTest {
         Settings.save(
             ctx, "Sehrlocka GmbH | Walter-White-Street 22 | 12345 Antartica",
             "Sehrlocka GmbH · Walter-White-Street 22 · 12345 Antartica\nGeschäftsführer: Anyone · USt-IdNr. DE302506362",
-            "Anyone", "A,B,C",
+            "Anyone", Settings.DEFAULT_ZONES,
         )
         val bytes = instr.context.assets.open("bestand_testkunde.xlsx").use { it.readBytes() }
         val imp = Importer.read(bytes)
@@ -68,12 +68,12 @@ class SmokeTest {
             notes = mutableMapOf(), created = 1, updated = 1,
         )
         val counts = listOf(
-            Triple("TST20002937Ref", "A", 17), Triple("TST20002937Ref", "C", 32),
-            Triple("TST20003013", "A", 26),
-            Triple("TST20003013Ref", "A", 62), Triple("TST20003013Ref", "B", 2), Triple("TST20003013Ref", "C", 50),
-            Triple("TST20003096", "A", 34), Triple("TST20003096", "B", 4), Triple("TST20003096", "C", 395),
-            Triple("TST20003062", "A", 103), Triple("TST20002966", "A", 320),
-            Triple("TST000004", "A", 55), Triple("TST000002", "A", 938),
+            Triple("TST20002937Ref", "Versand", 17), Triple("TST20002937Ref", "Außenlager", 32),
+            Triple("TST20003013", "Versand", 26),
+            Triple("TST20003013Ref", "Versand", 62), Triple("TST20003013Ref", "Lager", 2), Triple("TST20003013Ref", "Außenlager", 50),
+            Triple("TST20003096", "Versand", 34), Triple("TST20003096", "Lager", 4), Triple("TST20003096", "Außenlager", 395),
+            Triple("TST20003062", "Versand", 103), Triple("TST20002966", "Versand", 320),
+            Triple("TST000004", "Versand", 55), Triple("TST000002", "Versand", 938),
         )
         counts.forEachIndexed { i, (s, z, q) -> inv.counts.add(CountEntry(s, z, q, i.toLong())) }
         inv.notes["TST20003096"] = "1 Karton beschädigt, Rest in Technik prüfen"

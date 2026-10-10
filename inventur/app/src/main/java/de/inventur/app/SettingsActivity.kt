@@ -32,12 +32,12 @@ class SettingsActivity : AppCompatActivity() {
         form.addView(footer)
 
         form.addView(label("Zählbereiche (mit Komma getrennt)"))
-        val zones = field("A,B,C").apply {
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+        val zones = field(Settings.DEFAULT_ZONES).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
             setText(Settings.zones(this@SettingsActivity).joinToString(","))
         }
         form.addView(zones)
-        form.addView(text("z. B. A,B,C oder Halle 1,Halle 2,Technik", 12f, color = Colors.grey))
+        form.addView(text("Standard: Versand,Lager,Außenlager – z. B. auch Halle 1,Halle 2,Technik", 12f, color = Colors.grey))
 
         form.addView(button("Speichern") {
             Settings.save(this, sender.text.toString(), footer.text.toString(), ceo.text.toString(), zones.text.toString())

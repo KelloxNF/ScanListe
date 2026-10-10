@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Colors.init(this)
         DataWedge.ensureProfile(this)
+        Settings.migrateZones(this)
 
         val root = vbox()
         empty = text(

@@ -7,13 +7,13 @@ Differenzen sehen, Anschreiben und Zählliste als PDF erzeugen. Läuft komplett 
 1. Auf GitHub unter **Releases → „Inventur-App – neueste Version“** die Datei `Inventur.apk` laden
    (direkt auf dem TC22 oder per USB/MDM übertragen).
 2. Antippen und installieren (ggf. „Installation aus unbekannten Quellen“ erlauben).
-3. Einmal **⋮ → Einstellungen**: Absenderzeile, Name der Geschäftsführung, Fußzeile, Zählbereiche (Standard A, B, C).
+3. Einmal **⋮ → Einstellungen**: Absenderzeile, Name der Geschäftsführung, Fußzeile, Zählbereiche (Standard Versand, Lager, Außenlager).
 
 ## Ablauf je Kunde
 1. **Neue Inventur**: Kunde (bekannte Kunden werden vorgeschlagen), Stichtag, Zähler, Schreiber, Zählort.
    **Systembestand importieren**: Excel- (.xlsx) oder CSV-Export aus dem Lagersystem mit den Spalten
    *Artikelnummer, Artikel, Bestand, Bestand in Technik*. Die Reihenfolge der Spalten ist egal.
-2. **Zählen**: oben den Bereich (A/B/C) wählen, Artikel scannen oder antippen, Menge eingeben.
+2. **Zählen**: oben den Bereich (Versand / Lager / Außenlager) wählen, Artikel scannen oder antippen, Menge eingeben.
    - „Jeder Scan = 1 Stück“ anhaken, wenn jedes Gerät einzeln gescannt wird.
    - Unbekannter Barcode (z. B. EAN statt Artikelnummer): einmal dem Artikel zuordnen – die App merkt es sich je Kunde.
      Haben Neu- und Refware dieselbe EAN, beide ankreuzen; die App fragt dann bei jedem Scan nach.

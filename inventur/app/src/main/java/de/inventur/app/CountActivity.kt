@@ -82,7 +82,11 @@ class CountActivity : AppCompatActivity() {
         val zoneRow = hbox().apply { setPadding(dp(8), 0, dp(8), 0) }
         zoneRow.addView(text("Bereich:", 15f, bold = true).apply { setPadding(dp(4), 0, dp(8), 0) })
         zoneButtons = zones.map { z ->
-            button(z) { zone = z; updateZoneButtons(); showFeedback("Bereich $z gewählt", Colors.barIdle) }.also {
+            button(z) { zone = z; updateZoneButtons(); showFeedback("Bereich $z gewählt", Colors.barIdle) }.apply {
+                textSize = 14f
+                maxLines = 1
+                setPadding(dp(2), paddingTop, dp(2), paddingBottom)
+            }.also {
                 zoneRow.addView(it, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
         }

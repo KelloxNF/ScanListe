@@ -215,7 +215,7 @@ object Documents {
         data class Col(val title: String, val width: Float, val alignRight: Boolean)
         val fixed = mutableListOf(Col("Nr.", 24f, true), Col("Artikelnummer", 112f, false))
         val after = mutableListOf(Col("Soll", 46f, true))
-        zones.forEach { after.add(Col(it, 42f, true)) }
+        zones.forEach { after.add(Col(it, 58f, true)) }
         after.add(Col("Gesamt", 48f, true)); after.add(Col("Differenz", 52f, true)); after.add(Col("Status", 74f, false))
         val nameW = (right - m) - fixed.sumOf { it.width.toDouble() }.toFloat() - after.sumOf { it.width.toDouble() }.toFloat()
         val cols = fixed + Col("Artikel", nameW, false) + after
