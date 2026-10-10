@@ -76,7 +76,7 @@ class Inventory(
     var blind: Boolean,
     var closed: Boolean,
     val articles: MutableList<Article>,
-    val counts: MutableList<CountEntry>,
+    counts: MutableList<CountEntry>,
     val estimated: MutableSet<String>,
     val notes: MutableMap<String, String>,
     var created: Long,
@@ -87,15 +87,47 @@ class Inventory(
     fun findBySku(value: String): Article? =
         articles.firstOrNull { it.sku.trim().equals(value.trim(), ignoreCase = true) }
 
-    fun hasCount(sku: String) = counts.any { it.sku == sku }
+    // ---- Zählungen: nur über die Methoden unten ändern, damit der Index stimmt ----
+
+    private val _counts: MutableList<CountEntry> = counts
+
+    /** Alle Zählungen in Erfassungsreihenfolge (nur lesen). */
+    val counts: List<CountEntry> get() = _counts
+
+    /** Summen je Artikel und Bereich – wird bei jeder Änderung neu aufgebaut statt bei jeder Abfrage. */
+    private var index: Map<String, Map<String, Int>>? = null
+
+    private fun idx(): Map<String, Map<String, Int>> = index ?: HashMap<String, HashMap<String, Int>>().also { m ->
+        for (c in _counts) {
+            val z = m.getOrPut(c.sku) { HashMap() }
+            z[c.zone] = (z[c.zone] ?: 0) + c.qty
+        }
+        index = m
+    }
+
+    fun addCount(e: CountEntry) { _counts.add(e); index = null }
+
+    fun removeCount(e: CountEntry): Boolean = _counts.remove(e).also { index = null }
+
+    /** Entfernt die zuletzt erfasste Zählung und gibt sie zurück. */
+    fun removeLastCount(): CountEntry? {
+        val last = _counts.maxByOrNull { it.time } ?: return null
+        _counts.remove(last)
+        index = null
+        return last
+    }
+
+    fun replaceCounts(list: List<CountEntry>) { _counts.clear(); _counts.addAll(list); index = null }
+
+    /** Bereiche, in denen gezählt wurde (z. B. alte Namen nach Umbenennung in den Einstellungen). */
+    fun countedZones(): List<String> = _counts.map { it.zone }.distinct()
+
+    fun hasCount(sku: String) = idx().containsKey(sku)
 
     /** Gezählte Gesamtmenge oder null, wenn der Artikel noch nicht gezählt wurde. */
-    fun counted(sku: String): Int? = if (hasCount(sku)) counts.filter { it.sku == sku }.sumOf { it.qty } else null
+    fun counted(sku: String): Int? = idx()[sku]?.values?.sum()
 
-    fun zoneQty(sku: String, zone: String): Int? {
-        val e = counts.filter { it.sku == sku && it.zone == zone }
-        return if (e.isEmpty()) null else e.sumOf { it.qty }
-    }
+    fun zoneQty(sku: String, zone: String): Int? = idx()[sku]?.get(zone)
 
     /** Artikel, die auf die Zählliste gehören: Bestand > 0 oder bereits etwas gezählt. */
     fun listArticles(): List<Article> = articles.filter { it.soll > 0 || hasCount(it.sku) }
@@ -137,8 +169,9 @@ class Inventory(
 
     /** Setzt die Menge eines Artikels in einem Bereich auf einen festen Wert (Korrektur). */
     fun setZone(sku: String, zone: String, qty: Int?) {
-        counts.removeAll { it.sku == sku && it.zone == zone }
-        if (qty != null) counts.add(CountEntry(sku, zone, qty, System.currentTimeMillis()))
+        _counts.removeAll { it.sku == sku && it.zone == zone }
+        if (qty != null) _counts.add(CountEntry(sku, zone, qty, System.currentTimeMillis()))
+        index = null
     }
 
     fun title(): String = "${customer.name} – ${Dates.display(stichtag)}"

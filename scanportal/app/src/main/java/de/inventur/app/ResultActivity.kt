@@ -38,7 +38,7 @@ class ResultActivity : AppCompatActivity() {
         val loaded = intent.getStringExtra(CountActivity.EXTRA_ID)?.let { InventoryStore.load(this, it) }
         if (loaded == null) { finish(); return }
         inv = loaded
-        zones = (Settings.zones(this) + inv.counts.map { it.zone }).distinct()
+        zones = (Settings.zones(this) + inv.countedZones()).distinct()
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         title = "Ergebnis – ${inv.customer.name}"
 

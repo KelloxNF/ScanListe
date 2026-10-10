@@ -69,7 +69,8 @@ class CountActivity : AppCompatActivity() {
         val loaded = intent.getStringExtra(EXTRA_ID)?.let { InventoryStore.load(this, it) }
         if (loaded == null) { finish(); return }
         inv = loaded
-        zones = Settings.zones(this)
+        // Auch Bereiche anzeigen, in denen schon gezählt wurde, die aber in den Einstellungen umbenannt sind
+        zones = (Settings.zones(this) + inv.countedZones()).distinct()
         zone = savedInstanceState?.getString("zone")?.takeIf { it in zones } ?: zones.first()
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         title = inv.customer.name
@@ -280,7 +281,13 @@ class CountActivity : AppCompatActivity() {
                 add(a, n)
             }
         }
-        qty.setOnEditorActionListener { _, _, _ -> d.getButton(AlertDialog.BUTTON_POSITIVE).performClick(); true }
+        // Nur einmal auslösen: Eine Hardware-Enter-Taste meldet sich beim Drücken UND beim Loslassen.
+        qty.setOnEditorActionListener { _, _, event ->
+            if ((event == null || event.action == KeyEvent.ACTION_DOWN) && d.isShowing) {
+                d.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            }
+            true
+        }
         d.setOnDismissListener { if (dialog === d) dialog = null }
         dialog = d
         d.show()
@@ -290,12 +297,13 @@ class CountActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         val hhmm = SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(now))
         val prevFrom = inv.timeFrom; val prevTo = inv.timeTo; val prevClosed = inv.closed
-        inv.counts.add(CountEntry(a.sku, zone, n, now))
+        val entry = CountEntry(a.sku, zone, n, now)
+        inv.addCount(entry)
         if (inv.timeFrom.isBlank()) inv.timeFrom = hhmm
         inv.timeTo = hhmm
         inv.closed = false
         if (!persist()) {
-            inv.counts.removeAt(inv.counts.size - 1)
+            inv.removeCount(entry)
             inv.timeFrom = prevFrom; inv.timeTo = prevTo; inv.closed = prevClosed
             return
         }
@@ -382,9 +390,8 @@ class CountActivity : AppCompatActivity() {
     }
 
     private fun undo() {
-        val last = inv.counts.maxByOrNull { it.time }
+        val last = inv.removeLastCount()
         if (last == null) { toast("Noch nichts gezählt"); return }
-        inv.counts.remove(last)
         if (persist()) {
             val name = inv.article(last.sku)?.name ?: last.sku
             showFeedback("↶ Rückgängig: $name ${last.qty} in ${last.zone}", Colors.barIdle)

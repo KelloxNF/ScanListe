@@ -77,10 +77,10 @@ class LogicTest {
     @Test fun statusAndSummary() {
         val inv = inventory(Importer.toArticles(exportRows).articles)
         assertEquals(5, inv.listArticles().size) // nur Artikel mit Bestand
-        inv.counts.add(CountEntry("TST20002937Ref", "A", 17, 1))
-        inv.counts.add(CountEntry("TST20002937Ref", "C", 32, 2))   // 49 = stimmt
-        inv.counts.add(CountEntry("TST20003013", "A", 25, 3))      // 26 erwartet → -1
-        inv.counts.add(CountEntry("TST20003013Ref", "A", 114, 4))
+        inv.addCount(CountEntry("TST20002937Ref", "A", 17, 1))
+        inv.addCount(CountEntry("TST20002937Ref", "C", 32, 2))   // 49 = stimmt
+        inv.addCount(CountEntry("TST20003013", "A", 25, 3))      // 26 erwartet → -1
+        inv.addCount(CountEntry("TST20003013Ref", "A", 114, 4))
         inv.estimated.add("TST20003013Ref")
         val s = inv.summary()
         assertEquals(5, s.articles); assertEquals(1, s.ok); assertEquals(1, s.diff)
@@ -93,7 +93,7 @@ class LogicTest {
 
     @Test fun setZoneReplacesEntries() {
         val inv = inventory(listOf(Article("A1", "Box", 10, 0)))
-        inv.counts.add(CountEntry("A1", "A", 4, 1)); inv.counts.add(CountEntry("A1", "A", 3, 2))
+        inv.addCount(CountEntry("A1", "A", 4, 1)); inv.addCount(CountEntry("A1", "A", 3, 2))
         inv.setZone("A1", "A", 9)
         assertEquals(9, inv.counted("A1"))
         inv.setZone("A1", "A", null)
@@ -102,11 +102,11 @@ class LogicTest {
 
     @Test fun letterRowsUseFullNamesAndCountedQuantity() {
         val inv = inventory(Importer.toArticles(exportRows).articles)
-        inv.counts.add(CountEntry("TST20002937Ref", "A", 49, 1))
-        inv.counts.add(CountEntry("TST20003013", "A", 26, 2))
-        inv.counts.add(CountEntry("TST20003013Ref", "A", 114, 3))
-        inv.counts.add(CountEntry("TST20003096", "A", 434, 4))
-        inv.counts.add(CountEntry("TST4043972269040Ref", "A", 84, 5))
+        inv.addCount(CountEntry("TST20002937Ref", "A", 49, 1))
+        inv.addCount(CountEntry("TST20003013", "A", 26, 2))
+        inv.addCount(CountEntry("TST20003013Ref", "A", 114, 3))
+        inv.addCount(CountEntry("TST20003096", "A", 434, 4))
+        inv.addCount(CountEntry("TST4043972269040Ref", "A", 84, 5))
         assertEquals(
             listOf(
                 LetterRow("Fritz!Box 5530 Ref", 49),
@@ -122,7 +122,7 @@ class LogicTest {
 
     @Test fun renameChangesOnlyName() {
         val inv = inventory(Importer.toArticles(exportRows).articles)
-        inv.counts.add(CountEntry("TST20003096", "A", 434, 1))
+        inv.addCount(CountEntry("TST20003096", "A", 434, 1))
         inv.rename("TST20003096", "  FRITZ!Box 5690 (Neuware)  ")
         val a = inv.article("TST20003096")!!
         assertEquals("FRITZ!Box 5690 (Neuware)", a.name)
@@ -135,7 +135,7 @@ class LogicTest {
 
     @Test fun csvExportHasHeaderAndDefusesFormulas() {
         val inv = inventory(listOf(Article("=A1", "Box", 1, 0)))
-        inv.counts.add(CountEntry("=A1", "A", 1, 1))
+        inv.addCount(CountEntry("=A1", "A", 1, 1))
         val csv = CsvExport.result(inv, listOf("A", "B"))
         assertTrue(csv.startsWith("Kunde;Stichtag;Artikelnummer;Artikel;Soll;Technik;A;B;Ist;Differenz;Status;Bemerkung\r\n"))
         assertTrue(csv.contains(";'=A1;"))
@@ -159,5 +159,60 @@ class XlsxTest {
         assertEquals(568, a.technik)
         assertEquals(10, r.articles.count { it.soll > 0 })
         assertEquals(938, r.articles.first { it.sku == "TST000002" }.soll)
+    }
+}
+
+class FixesTest {
+    private fun inv(articles: List<Article>) = Inventory(
+        id = "t", customer = Customer("K", "", ""), stichtag = "2026-09-30", letterDate = "2026-09-30",
+        counter = "", writer = "", place = "", timeFrom = "", timeTo = "", blind = false, closed = false,
+        articles = articles.toMutableList(), counts = mutableListOf(), estimated = mutableSetOf(),
+        notes = mutableMapOf(), created = 0, updated = 0,
+    )
+
+    @Test fun indexStaysCorrectAfterEveryChange() {
+        val i = inv(listOf(Article("A", "a", 10, 0), Article("B", "b", 0, 0)))
+        assertNull(i.counted("A"))
+        val e1 = CountEntry("A", "Versand", 4, 1)
+        i.addCount(e1); i.addCount(CountEntry("A", "Lager", 3, 2))
+        assertEquals(7, i.counted("A")); assertEquals(4, i.zoneQty("A", "Versand"))
+        i.removeCount(e1)
+        assertEquals(3, i.counted("A")); assertNull(i.zoneQty("A", "Versand"))
+        i.addCount(CountEntry("B", "Lager", 2, 3))
+        assertEquals(2, i.listArticles().size)                 // B erscheint, weil gezählt
+        assertEquals("B", i.removeLastCount()!!.sku)
+        assertEquals(1, i.listArticles().size)
+        i.setZone("A", "Lager", 10)
+        assertEquals(10, i.counted("A")); assertEquals(Status.STIMMT, i.status(i.article("A")!!))
+        i.replaceCounts(listOf(CountEntry("A", "C", 1, 9)))
+        assertEquals(1, i.counted("A")); assertEquals(listOf("C"), i.countedZones())
+    }
+
+    @Test fun duplicateSkusAreSummedNotDropped() {
+        val rows = listOf(
+            listOf("Artikelnummer", "Artikel", "Bestand", "Bestand in Technik"),
+            listOf("X1", "Router", "10", "1"),
+            listOf("X2", "Kabel", "5", "0"),
+            listOf("X1", "Router", "7", "2"),
+        )
+        val r = Importer.toArticles(rows)
+        assertEquals(2, r.articles.size)
+        assertEquals(17, r.articles[0].soll); assertEquals(3, r.articles[0].technik)
+        assertTrue(r.info.contains("1 Zeilen mit gleicher Artikelnummer zusammengezählt"))
+    }
+
+    @Test fun manyArticlesAndScansStayFast() {
+        val arts = (1..500).map { Article("S$it", "Artikel $it", it, 0) }
+        val i = inv(arts)
+        val zones = listOf("Versand", "Lager", "Außenlager")
+        val t0 = System.nanoTime()
+        // 20.000 Einzelscans („Jeder Scan = 1 Stück“), nach jedem Scan Liste + Zusammenfassung neu berechnen
+        for (n in 0 until 20_000) {
+            i.addCount(CountEntry("S${n % 500 + 1}", zones[n % 3], 1, n.toLong()))
+            if (n % 50 == 0) { i.summary(); i.listArticles().forEach { a -> i.status(a); zones.forEach { z -> i.zoneQty(a.sku, z) } } }
+        }
+        val ms = (System.nanoTime() - t0) / 1_000_000
+        assertEquals(40, i.counted("S1"))
+        assertTrue("zu langsam: $ms ms", ms < 5_000)
     }
 }

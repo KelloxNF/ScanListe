@@ -50,29 +50,34 @@
         <!-- Inventur -->
         <activity
             android:name="de.inventur.app.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="false"
             android:label="Inventur"
             android:theme="@style/Theme.Inventur"
             android:parentActivityName="de.scanportal.app.PortalActivity" />
         <activity
             android:name="de.inventur.app.EditActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="false"
             android:theme="@style/Theme.Inventur"
             android:parentActivityName="de.inventur.app.MainActivity"
             android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
             android:name="de.inventur.app.CountActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="false"
             android:theme="@style/Theme.Inventur"
             android:parentActivityName="de.inventur.app.MainActivity"
             android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
             android:name="de.inventur.app.ResultActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="false"
             android:theme="@style/Theme.Inventur"
             android:parentActivityName="de.inventur.app.CountActivity" />
         <activity
             android:name="de.inventur.app.SettingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="false"
             android:theme="@style/Theme.Inventur"
             android:parentActivityName="de.inventur.app.MainActivity"

@@ -55,23 +55,33 @@ object Importer {
             data = nonEmpty.drop(headerIdx + 1)
         }
 
-        val seen = HashSet<String>()
         val out = ArrayList<Article>()
+        val pos = HashMap<String, Int>()
         var skipped = 0
+        var merged = 0
         for (r in data) {
             val sku = r.getOrNull(cSku)?.trim().orEmpty()
             if (sku.isEmpty()) { skipped++; continue }
-            if (!seen.add(sku)) { skipped++; continue }
             val name = (if (cName >= 0) r.getOrNull(cName) else null)?.trim().orEmpty().ifEmpty { sku }
             val soll = number(r.getOrNull(cSoll))
             val tech = if (cTech >= 0) number(r.getOrNull(cTech)) else 0
             if (soll == null && headerIdx < 0 && out.isEmpty()) { skipped++; continue } // vermutlich Kopfzeile
+            // Gleiche Artikelnummer mehrfach (z. B. je Lagerplatz eine Zeile): Mengen addieren
+            val i = pos[sku]
+            if (i != null) {
+                val a = out[i]
+                out[i] = a.copy(soll = a.soll + (soll ?: 0), technik = a.technik + (tech ?: 0))
+                merged++
+                continue
+            }
+            pos[sku] = out.size
             out.add(Article(sku, name, soll ?: 0, tech ?: 0))
         }
         if (out.isEmpty()) throw IllegalArgumentException("Keine Artikel gefunden.")
         val withStock = out.count { it.soll > 0 }
         val info = buildString {
             append("${out.size} Artikel importiert, davon $withStock mit Bestand")
+            if (merged > 0) append(", $merged Zeilen mit gleicher Artikelnummer zusammengezählt")
             if (skipped > 0) append(" ($skipped Zeilen übersprungen)")
             if (headerIdx < 0) append(". Keine Kopfzeile erkannt – Spalten A–D verwendet")
             append(".")

@@ -151,30 +151,45 @@ class EditActivity : AppCompatActivity() {
     }
 
     private fun importFrom(uri: Uri) {
-        try {
-            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalArgumentException("Datei nicht lesbar.")
-            val res = Importer.read(bytes)
-            val apply = {
-                imported = res.articles
-                importInfo.text = "✓ " + res.info
-                importInfo.setTextColor(Colors.ok)
+        importInfo.text = "Wird gelesen …"
+        importInfo.setTextColor(Colors.grey)
+        // Lesen im Hintergrund, damit große Excel-Dateien die Oberfläche nicht einfrieren
+        Thread {
+            val result = runCatching {
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalArgumentException("Datei nicht lesbar.")
+                Importer.read(bytes)
             }
-            val inv = existing
-            if (inv != null && inv.counts.isNotEmpty()) {
-                AlertDialog.Builder(this)
-                    .setTitle("Systembestand ersetzen?")
-                    .setMessage("Die bereits gezählten Mengen bleiben erhalten und werden über die Artikelnummer zugeordnet.\n\n${res.info}")
-                    .setPositiveButton("Ersetzen") { _, _ -> apply() }
-                    .setNegativeButton("Abbrechen", null)
-                    .show()
-            } else apply()
-        } catch (e: Exception) {
-            AlertDialog.Builder(this)
-                .setTitle("Import fehlgeschlagen")
-                .setMessage(e.message ?: e.toString())
-                .setPositiveButton("OK", null)
-                .show()
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { res -> applyImport(res) }.onFailure { e ->
+                    importInfo.text = "Import fehlgeschlagen."
+                    importInfo.setTextColor(Colors.error)
+                    AlertDialog.Builder(this)
+                        .setTitle("Import fehlgeschlagen")
+                        .setMessage(e.message ?: e.toString())
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }.start()
+    }
+
+    private fun applyImport(res: ImportResult) {
+        val apply = {
+            imported = res.articles
+            importInfo.text = "✓ " + res.info
+            importInfo.setTextColor(Colors.ok)
         }
+        val inv = existing
+        if (inv != null && inv.counts.isNotEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Systembestand ersetzen?")
+                .setMessage("Die bereits gezählten Mengen bleiben erhalten und werden über die Artikelnummer zugeordnet.\n\n${res.info}")
+                .setPositiveButton("Ersetzen") { _, _ -> apply() }
+                .setNegativeButton("Abbrechen", null)
+                .show()
+        } else apply()
     }
 
     private fun save() {
@@ -195,6 +210,12 @@ class EditActivity : AppCompatActivity() {
             estimated = mutableSetOf(), notes = mutableMapOf(),
             created = System.currentTimeMillis(), updated = System.currentTimeMillis(),
         )
+        val oldName = inv?.customer?.name
+        if (oldName != null && oldName.trim().lowercase() != name.lowercase()) {
+            // Barcode-Zuordnungen und eigene Bezeichnungen zum neuen Kundennamen mitnehmen
+            BarcodeStore.renameCustomer(this, oldName, name)
+            NameStore.renameCustomer(this, oldName, name)
+        }
         target.customer = Customer(name, street.text.toString().trim(), city.text.toString().trim())
         target.stichtag = stichtagIso
         target.letterDate = letterIso

@@ -131,10 +131,28 @@ object BarcodeStore {
 
     private fun file(ctx: Context) = File(ctx.filesDir, "barcodes.json")
 
-    private fun read(ctx: Context): JSONObject =
-        runCatching { JSONObject(file(ctx).readText()) }.getOrDefault(JSONObject())
+    /** Im Speicher gehalten, damit nicht bei jedem Scan die Datei gelesen wird. */
+    private var cache: JSONObject? = null
+
+    private fun read(ctx: Context): JSONObject = cache
+        ?: runCatching { JSONObject(file(ctx).readText()) }.getOrDefault(JSONObject()).also { cache = it }
+
+    private fun write(ctx: Context, root: JSONObject) {
+        InventoryStore.writeAtomic(file(ctx), root.toString())
+        cache = root
+    }
 
     private fun key(customer: String) = customer.trim().lowercase()
+
+    /** Zuordnungen mitnehmen, wenn ein Kunde umbenannt wird. */
+    fun renameCustomer(ctx: Context, from: String, to: String) {
+        if (key(from) == key(to)) return
+        val root = read(ctx)
+        val old = root.optJSONObject(key(from)) ?: return
+        if (root.has(key(to))) return
+        root.put(key(to), old); root.remove(key(from))
+        write(ctx, root)
+    }
 
     fun lookup(ctx: Context, customer: String, barcode: String): List<String> {
         val c = read(ctx).optJSONObject(key(customer)) ?: return emptyList()
@@ -146,13 +164,13 @@ object BarcodeStore {
         val root = read(ctx)
         val c = root.optJSONObject(key(customer)) ?: JSONObject().also { root.put(key(customer), it) }
         if (skus.isEmpty()) c.remove(barcode.trim()) else c.put(barcode.trim(), JSONArray(skus))
-        InventoryStore.writeAtomic(file(ctx), root.toString())
+        write(ctx, root)
     }
 
     fun clear(ctx: Context, customer: String) {
         val root = read(ctx)
         root.remove(key(customer))
-        InventoryStore.writeAtomic(file(ctx), root.toString())
+        write(ctx, root)
     }
 
     fun count(ctx: Context, customer: String): Int = read(ctx).optJSONObject(key(customer))?.length() ?: 0
@@ -182,6 +200,16 @@ object NameStore {
         val root = read(ctx)
         val c = root.optJSONObject(key(customer)) ?: JSONObject().also { root.put(key(customer), it) }
         if (name.isNullOrBlank()) c.remove(sku) else c.put(sku, name.trim())
+        InventoryStore.writeAtomic(file(ctx), root.toString())
+    }
+
+    /** Eigene Bezeichnungen mitnehmen, wenn ein Kunde umbenannt wird. */
+    fun renameCustomer(ctx: Context, from: String, to: String) {
+        if (key(from) == key(to)) return
+        val root = read(ctx)
+        val old = root.optJSONObject(key(from)) ?: return
+        if (root.has(key(to))) return
+        root.put(key(to), old); root.remove(key(from))
         InventoryStore.writeAtomic(file(ctx), root.toString())
     }
 
@@ -220,7 +248,7 @@ object Settings {
             for (inv in InventoryStore.all(ctx)) {
                 if (inv.counts.none { it.zone in map }) continue
                 val renamed = inv.counts.map { c -> map[c.zone]?.let { c.copy(zone = it) } ?: c }
-                inv.counts.clear(); inv.counts.addAll(renamed)
+                inv.replaceCounts(renamed)
                 runCatching { InventoryStore.save(ctx, inv) }
             }
         }

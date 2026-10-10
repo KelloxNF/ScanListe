@@ -78,7 +78,7 @@ class SmokeTest {
             Triple("TST20003062", "Versand", 103), Triple("TST20002966", "Versand", 320),
             Triple("TST000004", "Versand", 55), Triple("TST000002", "Versand", 938),
         )
-        counts.forEachIndexed { i, (s, z, q) -> inv.counts.add(CountEntry(s, z, q, i.toLong())) }
+        counts.forEachIndexed { i, (s, z, q) -> inv.addCount(CountEntry(s, z, q, i.toLong())) }
         inv.notes["TST20003096"] = "1 Karton beschädigt, Rest in Technik prüfen"
         inv.rename("TST20002966", "FRITZ!Fon X6 schwarz (umbenannt)")
         InventoryStore.save(ctx, inv)
