@@ -253,7 +253,9 @@ class ListActivity : AppCompatActivity() {
     private fun share() {
         try {
             val dir = File(cacheDir, "export").apply { mkdirs() }
-            dir.listFiles()?.forEach { it.delete() }
+            // Nur ältere Exporte löschen – eine Mail-App liest den letzten evtl. noch
+            val limit = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+            dir.listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
             val file = File(dir, Csv.fileName(list))
             file.outputStream().use { Csv.write(it, list) }
             val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)

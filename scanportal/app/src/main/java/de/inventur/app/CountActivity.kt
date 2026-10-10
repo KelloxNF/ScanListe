@@ -281,6 +281,10 @@ class CountActivity : AppCompatActivity() {
             d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val n = qty.text.toString().trim().toIntOrNull()
                 if (n == null || n == 0) { qty.error = "Menge eingeben"; return@setOnClickListener }
+                if ((inv.zoneQty(a.sku, zone) ?: 0) + n < 0) {
+                    qty.error = "Dann wäre die Menge in $zone negativ"
+                    return@setOnClickListener
+                }
                 d.dismiss()
                 add(a, n)
             }
@@ -342,7 +346,8 @@ class CountActivity : AppCompatActivity() {
         box.addView(nameField)
         if (!inv.blind) box.addView(text("Soll: ${a.soll}", 14f).apply { setPadding(0, dp(8), 0, 0) })
         val sollBox = CheckBox(this).apply { text = "Ist = Sollbestand (${a.soll} in „$zone“ eintragen)" }
-        if (!inv.blind) box.addView(sollBox)
+        // Nur bei positivem Soll sinnvoll – ein negativer oder leerer Systembestand kann nicht „stimmen“
+        if (!inv.blind && a.soll > 0) box.addView(sollBox)
         val fields = zones.map { z ->
             val row = hbox()
             row.addView(text(z, 15f).lp(dp(110)))

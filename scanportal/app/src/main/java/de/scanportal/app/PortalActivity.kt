@@ -14,6 +14,18 @@ import androidx.appcompat.app.AppCompatActivity
 
 /** Startbildschirm des Scan-Portals: zwei Kacheln für ScanListe und Inventur. */
 class PortalActivity : AppCompatActivity() {
+    /** Scans auf diesem Bildschirm landen nirgends – darauf deutlich hinweisen. */
+    private val scanHint = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+            android.widget.Toast.makeText(this@PortalActivity, "Scan nicht gespeichert – bitte zuerst „Scannen“ oder „Inventur“ öffnen", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        runCatching { unregisterReceiver(scanHint) }
+    }
+
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -47,6 +59,13 @@ class PortalActivity : AppCompatActivity() {
             setPadding(0, dp(8), 0, 0)
         })
         setContentView(root)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        androidx.core.content.ContextCompat.registerReceiver(
+            this, scanHint, android.content.IntentFilter(DataWedge.SCAN_ACTION), androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
+        )
     }
 
     private fun tile(title: String, subtitle: String, icon: Int, color: Int, onClick: () -> Unit): LinearLayout {

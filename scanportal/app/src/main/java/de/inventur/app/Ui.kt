@@ -148,8 +148,10 @@ object Share {
         return File(dir, name)
     }
 
+    /** Alte Exporte aufräumen – nur ältere als 1 Tag, eine Mail-App liest den letzten evtl. noch. */
     fun clear(ctx: Context) {
-        File(ctx.cacheDir, "export").listFiles()?.forEach { it.delete() }
+        val limit = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        File(ctx.cacheDir, "export").listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
     }
 
     fun send(activity: Activity, file: File, mime: String, subject: String) {
