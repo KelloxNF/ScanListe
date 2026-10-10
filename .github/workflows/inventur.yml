@@ -34,7 +34,11 @@ jobs:
           gradle-version: "8.9"
 
       - name: Tests (Import, Zähllogik, CSV)
-        run: gradle testDebugUnitTest --no-daemon
+        run: |
+          gradle testDebugUnitTest --no-daemon
+          T=$(cat app/build/test-results/testDebugUnitTest/*.xml | grep -o '<testsuite [^>]*' | grep -oE 'tests="[0-9]+"' | grep -oE '[0-9]+' | paste -sd+ | bc)
+          F=$(cat app/build/test-results/testDebugUnitTest/*.xml | grep -o '<testsuite [^>]*' | grep -oE 'failures="[0-9]+"' | grep -oE '[0-9]+' | paste -sd+ | bc)
+          echo "::notice title=Tests::$T Tests ausgeführt, $F fehlgeschlagen"
 
       - name: APK bauen
         run: gradle assembleDebug --no-daemon
