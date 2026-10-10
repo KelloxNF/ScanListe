@@ -134,3 +134,17 @@ class LogicTest {
         assertEquals("30. September 2026", Dates.long("2026-09-30"))
     }
 }
+
+class XlsxTest {
+    @Test fun readsRealExportFile() {
+        val bytes = javaClass.classLoader!!.getResourceAsStream("bestand_testkunde.xlsx")!!.readBytes()
+        val r = Importer.read(bytes)
+        assertEquals(23, r.articles.size)
+        val a = r.articles.first { it.sku == "TST20003013Ref" }
+        assertEquals("FRITZ!Box 5590 Ref", a.name)
+        assertEquals(114, a.soll)
+        assertEquals(568, a.technik)
+        assertEquals(10, r.articles.count { it.soll > 0 })
+        assertEquals(938, r.articles.first { it.sku == "TST000002" }.soll)
+    }
+}

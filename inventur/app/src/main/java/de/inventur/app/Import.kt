@@ -1,10 +1,11 @@
 package de.inventur.app
 
-import android.util.Xml
-import org.xmlpull.v1.XmlPullParser
+import org.w3c.dom.Element
+import org.w3c.dom.Node
 import java.io.ByteArrayInputStream
 import java.nio.charset.Charset
 import java.util.zip.ZipInputStream
+import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.math.roundToInt
 
 /** Ergebnis des Imports: die Artikel und ein Hinweistext für den Benutzer. */
@@ -143,63 +144,74 @@ object Xlsx {
             }
         }
         val shared = files["xl/sharedStrings.xml"]?.let { sharedStrings(it) } ?: emptyList()
-        val sheetPath = firstSheetPath(files) ?: files.keys.filter { it.startsWith("xl/worksheets/sheet") }.minOrNull()
+        val sheetPath = firstSheetPath(files)?.takeIf { it in files }
+            ?: files.keys.filter { it.startsWith("xl/worksheets/sheet") }.minOrNull()
             ?: throw IllegalArgumentException("Kein Tabellenblatt in der Excel-Datei gefunden.")
-        val sheet = files[sheetPath] ?: throw IllegalArgumentException("Tabellenblatt nicht lesbar.")
-        return readSheet(sheet, shared)
+        return readSheet(files.getValue(sheetPath), shared)
     }
 
-    private fun parser(b: ByteArray): XmlPullParser = Xml.newPullParser().apply {
-        setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
-        setInput(ByteArrayInputStream(b), "UTF-8")
+    private fun dom(b: ByteArray): Element {
+        val f = DocumentBuilderFactory.newInstance()
+        f.isNamespaceAware = false
+        runCatching { f.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+        return f.newDocumentBuilder().parse(ByteArrayInputStream(b)).documentElement
     }
 
-    private fun local(name: String?) = name?.substringAfter(':') ?: ""
+    private fun Node.local(): String = nodeName.substringAfter(':')
 
-    private fun firstSheetPath(files: Map<String, ByteArray>): String? {
-        val wb = files["xl/workbook.xml"] ?: return null
-        val rels = files["xl/_rels/workbook.xml.rels"] ?: return null
-        var rid: String? = null
-        val p = parser(wb)
-        while (p.next() != XmlPullParser.END_DOCUMENT) {
-            if (p.eventType == XmlPullParser.START_TAG && local(p.name) == "sheet") {
-                for (i in 0 until p.attributeCount) if (local(p.getAttributeName(i)) == "id") rid = p.getAttributeValue(i)
-                break
+    private fun Node.children(name: String): List<Element> {
+        val out = ArrayList<Element>()
+        val nl = childNodes
+        for (i in 0 until nl.length) {
+            val n = nl.item(i)
+            if (n is Element && n.local() == name) out.add(n)
+        }
+        return out
+    }
+
+    private fun Element.descendants(name: String): List<Element> {
+        val out = ArrayList<Element>()
+        fun walk(n: Node) {
+            val nl = n.childNodes
+            for (i in 0 until nl.length) {
+                val c = nl.item(i)
+                if (c is Element) {
+                    if (c.local() == name) out.add(c)
+                    walk(c)
+                }
             }
         }
-        rid ?: return null
-        val r = parser(rels)
-        while (r.next() != XmlPullParser.END_DOCUMENT) {
-            if (r.eventType == XmlPullParser.START_TAG && local(r.name) == "Relationship" && r.getAttributeValue(null, "Id") == rid) {
-                val t = r.getAttributeValue(null, "Target") ?: return null
-                return if (t.startsWith("/")) t.trimStart('/') else "xl/" + t.removePrefix("./")
-            }
+        walk(this)
+        return out
+    }
+
+    private fun Element.attr(name: String): String? {
+        val a = attributes
+        for (i in 0 until a.length) {
+            val n = a.item(i)
+            if (n.local() == name && !n.nodeName.startsWith("xmlns")) return n.nodeValue
         }
         return null
     }
 
-    private fun sharedStrings(b: ByteArray): List<String> {
-        val out = ArrayList<String>()
-        val p = parser(b)
-        val sb = StringBuilder()
-        var inSi = false; var inT = false; var inPh = false
-        while (p.next() != XmlPullParser.END_DOCUMENT) {
-            when (p.eventType) {
-                XmlPullParser.START_TAG -> when (local(p.name)) {
-                    "si" -> { inSi = true; sb.clear() }
-                    "t" -> inT = true
-                    "rPh" -> inPh = true
-                }
-                XmlPullParser.TEXT -> if (inSi && inT && !inPh) sb.append(p.text)
-                XmlPullParser.END_TAG -> when (local(p.name)) {
-                    "si" -> { inSi = false; out.add(sb.toString()) }
-                    "t" -> inT = false
-                    "rPh" -> inPh = false
-                }
-            }
-        }
-        return out
+    private fun firstSheetPath(files: Map<String, ByteArray>): String? {
+        val wb = files["xl/workbook.xml"] ?: return null
+        val rels = files["xl/_rels/workbook.xml.rels"] ?: return null
+        val sheet = dom(wb).descendants("sheet").firstOrNull() ?: return null
+        val rid = sheet.attr("id") ?: return null
+        val rel = dom(rels).descendants("Relationship").firstOrNull { it.getAttribute("Id") == rid } ?: return null
+        val t = rel.getAttribute("Target")
+        return if (t.startsWith("/")) t.trimStart('/') else "xl/" + t.removePrefix("./")
     }
+
+    private fun sharedStrings(b: ByteArray): List<String> =
+        dom(b).children("si").map { si ->
+            // Text aus <t> direkt oder aus Formatierungs-Läufen <r><t>, ohne Lautschrift <rPh>
+            val sb = StringBuilder()
+            si.children("t").forEach { sb.append(it.textContent) }
+            si.children("r").forEach { r -> r.children("t").forEach { sb.append(it.textContent) } }
+            sb.toString()
+        }
 
     private fun colIndex(ref: String): Int {
         var n = 0
@@ -211,52 +223,28 @@ object Xlsx {
 
     private fun readSheet(b: ByteArray, shared: List<String>): List<List<String>> {
         val rows = ArrayList<List<String>>()
-        var row: MutableMap<Int, String>? = null
-        var col = 0; var type = ""; var nextCol = 0
-        val value = StringBuilder()
-        var inV = false; var inT = false
-        val p = parser(b)
-        while (p.next() != XmlPullParser.END_DOCUMENT) {
-            when (p.eventType) {
-                XmlPullParser.START_TAG -> when (local(p.name)) {
-                    "row" -> { row = HashMap(); nextCol = 0 }
-                    "c" -> {
-                        val r = p.getAttributeValue(null, "r")
-                        col = if (r != null) colIndex(r) else nextCol
-                        nextCol = col + 1
-                        type = p.getAttributeValue(null, "t") ?: ""
-                        value.clear()
-                    }
-                    "v" -> inV = true
-                    "t" -> inT = true
+        for (row in dom(b).descendants("row")) {
+            val cells = HashMap<Int, String>()
+            var next = 0
+            for (c in row.children("c")) {
+                val col = c.attr("r")?.let { colIndex(it) } ?: next
+                next = col + 1
+                val type = c.attr("t") ?: ""
+                val raw = c.children("v").firstOrNull()?.textContent ?: ""
+                val text = when (type) {
+                    "s" -> raw.trim().toIntOrNull()?.let { shared.getOrNull(it) } ?: ""
+                    "inlineStr" -> c.descendants("t").joinToString("") { it.textContent }
+                    "str" -> raw
+                    "b" -> if (raw == "1") "WAHR" else "FALSCH"
+                    "e" -> ""
+                    else -> raw.toDoubleOrNull()?.let { d ->
+                        if (d == Math.floor(d) && !d.isInfinite() && Math.abs(d) < 1e15) d.toLong().toString() else raw
+                    } ?: raw
                 }
-                XmlPullParser.TEXT -> if (inV || inT) value.append(p.text)
-                XmlPullParser.END_TAG -> when (local(p.name)) {
-                    "v" -> inV = false
-                    "t" -> inT = false
-                    "c" -> {
-                        val raw = value.toString()
-                        val text = when (type) {
-                            "s" -> raw.trim().toIntOrNull()?.let { shared.getOrNull(it) } ?: ""
-                            "inlineStr", "str" -> raw
-                            "b" -> if (raw == "1") "WAHR" else "FALSCH"
-                            "e" -> ""
-                            else -> raw.toDoubleOrNull()?.let { d ->
-                                if (d == Math.floor(d) && !d.isInfinite() && Math.abs(d) < 1e15) d.toLong().toString() else raw
-                            } ?: raw
-                        }
-                        row?.put(col, text)
-                    }
-                    "row" -> {
-                        val r = row
-                        if (r != null) {
-                            val max = r.keys.maxOrNull() ?: -1
-                            rows.add(List(max + 1) { r[it] ?: "" })
-                        }
-                        row = null
-                    }
-                }
+                cells[col] = text
             }
+            val max = cells.keys.maxOrNull() ?: -1
+            rows.add(List(max + 1) { cells[it] ?: "" })
         }
         return rows
     }
