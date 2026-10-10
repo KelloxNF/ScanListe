@@ -8,6 +8,9 @@ on:
       - ".github/workflows/inventur-test.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   emulator:
     runs-on: ubuntu-24.04
@@ -66,3 +69,15 @@ jobs:
         with:
           name: screenshots
           path: shots/
+
+      - name: Screenshots in Zweig "inventur-screenshots" ablegen
+        if: always()
+        run: |
+          [ -d shots ] || exit 0
+          cd shots
+          git init -q -b inventur-screenshots
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Screenshots aus ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" inventur-screenshots
