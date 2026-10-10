@@ -101,6 +101,15 @@ class SmokeTest {
             )
             shot("4_scan_menge")
         }
+        ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
+            // Bearbeiten-Fenster (sonst per langem Tippen) mit Checkbox „Ist = Sollbestand“
+            sc.onActivity { act ->
+                val m = CountActivity::class.java.getDeclaredMethod("editArticle", Article::class.java)
+                m.isAccessible = true
+                m.invoke(act, inv.article("TST20002974"))
+            }
+            shot("8_artikel_bearbeiten")
+        }
         ActivityScenario.launch<CountActivity>(countIntent).use {
             // Unbekannter Barcode → Zuordnen-Dialog
             ctx.sendBroadcast(

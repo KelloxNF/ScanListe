@@ -18,7 +18,7 @@ Differenzen sehen, Anschreiben und Zählliste als PDF erzeugen. Läuft komplett 
    - Unbekannter Barcode (z. B. EAN statt Artikelnummer): einmal dem Artikel zuordnen – die App merkt es sich je Kunde.
      Haben Neu- und Refware dieselbe EAN, beide ankreuzen; die App fragt dann bei jedem Scan nach.
    - Langes Tippen auf einen Artikel (oder „Ändern“ im Mengen-Fenster): **Bezeichnung umbenennen**, Mengen je Bereich
-     korrigieren, „geschätzt“ markieren, Bemerkung. Die Artikelnummer bleibt; die neue Bezeichnung merkt sich die App
+     korrigieren, „Ist = Sollbestand“ anhaken (trägt den Soll im gewählten Bereich ein), „geschätzt“ markieren, Bemerkung. Die Artikelnummer bleibt; die neue Bezeichnung merkt sich die App
      je Kunde und verwendet sie auch bei der nächsten Inventur.
    - ⋮ → „Letzte Zählung rückgängig“.
    - Grün = stimmt, orange = Differenz. Bei **Blindzählung** wird der Sollbestand ausgeblendet.

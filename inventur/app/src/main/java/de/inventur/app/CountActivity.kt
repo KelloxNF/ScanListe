@@ -80,9 +80,8 @@ class CountActivity : AppCompatActivity() {
 
         // Bereichsauswahl
         val zoneRow = hbox().apply { setPadding(dp(8), 0, dp(8), 0) }
-        zoneRow.addView(text("Bereich:", 15f, bold = true).apply { setPadding(dp(4), 0, dp(8), 0) })
         zoneButtons = zones.map { z ->
-            button(z) { zone = z; updateZoneButtons(); showFeedback("Bereich $z gewählt", Colors.barIdle) }.apply {
+            button(z) { zone = z; updateZoneButtons(); showFeedback("$z gewählt", Colors.barIdle) }.apply {
                 textSize = 14f
                 maxLines = 1
                 setPadding(dp(2), paddingTop, dp(2), paddingBottom)
@@ -259,7 +258,7 @@ class CountActivity : AppCompatActivity() {
         val box = vbox(20)
         val before = inv.zoneQty(a.sku, zone)
         box.addView(text(a.sku, 13f, color = Colors.grey))
-        box.addView(text("Bereich $zone · bisher hier: ${before ?: "–"} · gesamt: ${inv.counted(a.sku) ?: "–"}", 14f))
+        box.addView(text("$zone · bisher hier: ${before ?: "–"} · gesamt: ${inv.counted(a.sku) ?: "–"}", 14f))
         val qty = field("Menge", number = true, signed = true).apply { textSize = 26f }
         box.addView(qty)
         val d = AlertDialog.Builder(this)
@@ -326,13 +325,26 @@ class CountActivity : AppCompatActivity() {
         }
         box.addView(nameField)
         if (!inv.blind) box.addView(text("Soll: ${a.soll}", 14f).apply { setPadding(0, dp(8), 0, 0) })
+        val sollBox = CheckBox(this).apply { text = "Ist = Sollbestand (${a.soll} in „$zone“ eintragen)" }
+        if (!inv.blind) box.addView(sollBox)
         val fields = zones.map { z ->
             val row = hbox()
-            row.addView(text("Bereich $z", 15f).lp(dp(110)))
+            row.addView(text(z, 15f).lp(dp(110)))
             val f = field("–", number = true).apply { setText(inv.zoneQty(a.sku, z)?.toString() ?: "") }
             row.addView(f.lp(0, weight = 1f))
             box.addView(row)
             z to f
+        }
+        // Ist = Soll: Soll im aktuell gewählten Bereich eintragen, übrige Bereiche leeren;
+        // beim Abhaken werden die vorherigen Werte wiederhergestellt.
+        var previous: List<String> = emptyList()
+        sollBox.setOnCheckedChangeListener { _, checked ->
+            if (checked) {
+                previous = fields.map { it.second.text.toString() }
+                for ((z, f) in fields) f.setText(if (z == zone) a.soll.toString() else "")
+            } else {
+                fields.forEachIndexed { i, (_, f) -> f.setText(previous.getOrElse(i) { "" }) }
+            }
         }
         val est = CheckBox(this).apply { text = "Menge geschätzt"; isChecked = a.sku in inv.estimated }
         box.addView(est)
