@@ -158,7 +158,7 @@ class CountActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // Nach Rückkehr aus Kopfdaten/Ergebnis neu laden
-        InventoryStore.load(this, inv.id)?.let { inv = it; refresh() }
+        InventoryStore.load(this, inv.id)?.let { inv = it; title = it.customer.name; refresh() }
         ContextCompat.registerReceiver(this, scanReceiver, IntentFilter(DataWedge.SCAN_ACTION), ContextCompat.RECEIVER_EXPORTED)
         receiverRegistered = true
     }
@@ -382,7 +382,11 @@ class CountActivity : AppCompatActivity() {
                 }
                 for ((z, f) in fields) {
                     val v = f.text.toString().trim().toIntOrNull()
-                    if (v != inv.zoneQty(a.sku, z)) inv.setZone(a.sku, z, v)
+                    if (v != inv.zoneQty(a.sku, z)) {
+                        inv.setZone(a.sku, z, v)
+                        // Frühere Scans dieses Bereichs sind jetzt durch die Korrektur ersetzt
+                        undoStack.removeAll { it.sku == a.sku && it.zone == z }
+                    }
                 }
                 if (est.isChecked) inv.estimated.add(a.sku) else inv.estimated.remove(a.sku)
                 val n = note.text.toString().trim()

@@ -42,14 +42,7 @@ object InventoryStore {
             .map { it.customer }
             .sortedBy { it.name.lowercase() }
 
-    fun writeAtomic(target: File, text: String) {
-        val tmp = File(target.parentFile, target.name + ".tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(target)) {
-            target.writeText(text)
-            tmp.delete()
-        }
-    }
+    fun writeAtomic(target: File, text: String) = de.scanportal.app.SafeFile.write(target, text)
 
     fun toJson(inv: Inventory): JSONObject = JSONObject().apply {
         put("id", inv.id)

@@ -19,7 +19,12 @@ object DataWedge {
     private const val API_ACTION = "com.symbol.datawedge.api.ACTION"
     private const val PROFILE_NAME = "ScanPortal"
 
+    /** Nur einmal je App-Start einrichten: jede Neu-Konfiguration startet den Scanner kurz neu. */
+    @Volatile private var configured = false
+
     fun ensureProfile(ctx: Context) {
+        if (configured) return
+        configured = true
         val barcode = Bundle().apply {
             putString("PLUGIN_NAME", "BARCODE")
             putString("RESET_CONFIG", "true")

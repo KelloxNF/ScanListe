@@ -55,7 +55,8 @@ data class Summary(
         get() = when {
             articles == 0 -> "Kein Systembestand"
             notCounted > 0 -> "Offen"
-            diff > 0 -> "Differenz"
+            // auch geschätzte Mengen, die vom Soll abweichen, zählen als Differenz
+            diff > 0 || plus > 0 || minus > 0 -> "Differenz"
             else -> "Ohne Differenz"
         }
 }
@@ -155,8 +156,11 @@ class Inventory(
 
     fun zoneQty(sku: String, zone: String): Int? = idx()[sku]?.get(zone)
 
-    /** Artikel, die auf die Zählliste gehören: Bestand > 0 oder bereits etwas gezählt. */
-    fun listArticles(): List<Article> = articles.filter { it.soll > 0 || hasCount(it.sku) }
+    /**
+     * Artikel, die auf die Zählliste gehören: Systembestand ungleich 0 (auch negativ – das ist
+     * selbst schon eine Unstimmigkeit im System) oder bereits etwas gezählt.
+     */
+    fun listArticles(): List<Article> = articles.filter { it.soll != 0 || hasCount(it.sku) }
 
     fun status(a: Article): Status {
         val ist = counted(a.sku) ?: return Status.NICHT_GEZAEHLT

@@ -1,5 +1,7 @@
 package de.scanliste.app
 
+import de.scanportal.app.SafeFile
+
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
@@ -62,14 +64,7 @@ object ListStore {
 
     // ---------- intern ----------
 
-    private fun writeAtomic(target: File, text: String) {
-        val tmp = File(target.parentFile, target.name + ".tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(target)) {
-            target.writeText(text)
-            tmp.delete()
-        }
-    }
+    private fun writeAtomic(target: File, text: String) = SafeFile.write(target, text)
 
     private fun infoOf(list: ScanList) = ListInfo(list.id, list.name, list.columns.toList(), list.valueCount(), list.updated)
 

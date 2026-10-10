@@ -256,3 +256,40 @@ class UndoAndCompactTest {
         assertEquals(2, i.zoneQty("A", "Lager"))
     }
 }
+
+class ThirdRoundTest {
+    private fun inv(arts: List<Article>) = Inventory(
+        id = "t", customer = Customer("K", "", ""), stichtag = "2026-09-30", letterDate = "2026-09-30",
+        counter = "", writer = "", place = "", timeFrom = "", timeTo = "", blind = false, closed = false,
+        articles = arts.toMutableList(), counts = mutableListOf(), estimated = mutableSetOf(),
+        notes = mutableMapOf(), created = 0, updated = 0,
+    )
+
+    @Test fun negativeSystemStockIsListed() {
+        val i = inv(listOf(Article("N", "Minus", -3, 0), Article("Z", "Null", 0, 0)))
+        assertEquals(listOf("N"), i.listArticles().map { it.sku })
+        assertEquals(Status.NICHT_GEZAEHLT, i.status(i.article("N")!!))
+        i.addCount(CountEntry("N", "Lager", 0, 1))
+        assertEquals(Status.DIFFERENZ, i.status(i.article("N")!!))
+        assertEquals(3, i.summary().plus)
+    }
+
+    @Test fun estimatedQuantityWithDeviationIsNotOhneDifferenz() {
+        val i = inv(listOf(Article("A", "a", 10, 0)))
+        i.addCount(CountEntry("A", "Lager", 8, 1))
+        i.estimated.add("A")
+        assertEquals(Status.GESCHAETZT, i.status(i.article("A")!!))
+        assertEquals("Differenz", i.summary().overall)
+        i.setZone("A", "Lager", 10)
+        assertEquals("Ohne Differenz", i.summary().overall)
+    }
+
+    @Test fun safeFileOverwritesCompletely() {
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        val f = java.io.File(dir, "x.json")
+        de.scanportal.app.SafeFile.write(f, "a".repeat(10_000))
+        de.scanportal.app.SafeFile.write(f, "kurz")
+        assertEquals("kurz", f.readText())
+        assertTrue(!java.io.File(dir, "x.json.tmp").exists())
+    }
+}

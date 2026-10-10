@@ -191,9 +191,14 @@ class EditActivity : AppCompatActivity() {
         }
         val inv = existing
         if (inv != null && inv.counts.isNotEmpty()) {
+            val newSkus = res.articles.map { it.sku }.toHashSet()
+            val missing = inv.counts.map { it.sku }.distinct().filter { it !in newSkus }
+            val warn = if (missing.isEmpty()) "" else
+                "\n\nAchtung: ${missing.size} bereits gezählte Artikel fehlen in der neuen Datei " +
+                    "(${missing.take(5).joinToString(", ")}${if (missing.size > 5) " …" else ""}) und wären danach nicht mehr sichtbar."
             AlertDialog.Builder(this)
                 .setTitle("Systembestand ersetzen?")
-                .setMessage("Die bereits gezählten Mengen bleiben erhalten und werden über die Artikelnummer zugeordnet.\n\n${res.info}")
+                .setMessage("Die bereits gezählten Mengen bleiben erhalten und werden über die Artikelnummer zugeordnet.\n\n${res.info}$warn")
                 .setPositiveButton("Ersetzen") { _, _ -> apply() }
                 .setNegativeButton("Abbrechen", null)
                 .show()
