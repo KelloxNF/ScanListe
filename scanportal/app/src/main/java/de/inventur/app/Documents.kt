@@ -107,7 +107,7 @@ object Documents {
 
         // Absenderzeile + Anschrift (Fensterbereich nach DIN 5008)
         pdf.y = 133f
-        if (sender.isNotBlank()) c().drawText(fit(sender, small, 240f), left, pdf.y, small)
+        if (sender.isNotBlank()) c().drawText(fit(sender, small, width), left, pdf.y, small)
         pdf.y = 155f
         for (l in listOf(inv.customer.name, inv.customer.street, inv.customer.city).filter { it.isNotBlank() }) {
             c().drawText(l, left, pdf.y, body); pdf.y += lh
@@ -203,8 +203,8 @@ object Documents {
         )
         var yy = 74f
         for (i in info.indices) {
-            c().drawText(info[i].first, m, yy, lab); c().drawText(info[i].second, m + 62f, yy, v)
-            c().drawText(info2[i].first, m + 260f, yy, lab); c().drawText(info2[i].second, m + 315f, yy, v)
+            c().drawText(info[i].first, m, yy, lab); c().drawText(fit(info[i].second, v, 190f), m + 62f, yy, v)
+            c().drawText(info2[i].first, m + 260f, yy, lab); c().drawText(fit(info2[i].second, v, right - 260f - (m + 315f)), m + 315f, yy, v)
             yy += 13f
         }
         val sig = Paint().apply { color = Color.BLACK; strokeWidth = 0.6f }
@@ -281,10 +281,11 @@ object Documents {
         if (notes.isNotEmpty()) {
             pdf.y += 16f
             c().drawText("Bemerkungen:", m, pdf.y, paint(9f, bold = true))
-            for (n in notes) {
+            val np = paint(8.5f)
+            for (n in notes) for (line in wrap(n, np, right - m)) {
                 pdf.y += 12f
                 if (pdf.y > pdf.h - 40f) { pdf.newPage(); pdf.y = 50f }
-                c().drawText(fit(n, paint(8.5f), right - m), m, pdf.y, paint(8.5f))
+                c().drawText(line, m, pdf.y, np)
             }
         }
         pdf.write(out)

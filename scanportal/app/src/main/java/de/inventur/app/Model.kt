@@ -105,7 +105,33 @@ class Inventory(
         index = m
     }
 
-    fun addCount(e: CountEntry) { _counts.add(e); index = null }
+    /**
+     * Fügt eine Zählung hinzu. Folgt sie direkt auf eine Zählung desselben Artikels im selben
+     * Bereich, wird die Menge dort aufaddiert – so bleibt die Datei auch bei tausenden
+     * Einzelscans („Jeder Scan = 1 Stück“) klein und das Speichern schnell.
+     */
+    fun addCount(e: CountEntry) {
+        val last = _counts.lastOrNull()
+        if (last != null && last.sku == e.sku && last.zone == e.zone && last.qty > 0 && e.qty > 0) {
+            _counts[_counts.size - 1] = last.copy(qty = last.qty + e.qty, time = e.time)
+        } else {
+            _counts.add(e)
+        }
+        index = null
+    }
+
+    /**
+     * Nimmt eine zuvor hinzugefügte Menge wieder zurück (für „Rückgängig“): zieht sie von der
+     * jüngsten Zählung dieses Artikels in diesem Bereich ab. Gibt false zurück, wenn dort nichts mehr steht.
+     */
+    fun retract(sku: String, zone: String, qty: Int): Boolean {
+        val i = _counts.indexOfLast { it.sku == sku && it.zone == zone }
+        if (i < 0) return false
+        val e = _counts[i]
+        if (e.qty == qty) _counts.removeAt(i) else _counts[i] = e.copy(qty = e.qty - qty)
+        index = null
+        return true
+    }
 
     fun removeCount(e: CountEntry): Boolean = _counts.remove(e).also { index = null }
 

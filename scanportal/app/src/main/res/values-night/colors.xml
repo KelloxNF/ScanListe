@@ -3,4 +3,7 @@
     <color name="table_header">#2A3038</color>
     <color name="row_stripe">#1C2026</color>
     <color name="next_cell">#664D8FE0</color>
+    <!-- Dunkelmodus (ScanListe): helles Blau, damit Knöpfe in Dialogen lesbar sind -->
+    <color name="brand">#8AB4F8</color>
+    <color name="brand_dark">#6A98E0</color>
 </resources>

@@ -51,7 +51,7 @@ class EditActivity : AppCompatActivity() {
         title = if (existing == null) "Neue Inventur" else "Kopfdaten"
 
         val form = vbox(16)
-        val known = InventoryStore.customers(this)
+        var known: List<Customer> = emptyList()
 
         form.addView(label("Kunde"))
         customer = AutoCompleteTextView(this).apply {
@@ -59,13 +59,21 @@ class EditActivity : AppCompatActivity() {
             textSize = 16f
             threshold = 1
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
-            setAdapter(ArrayAdapter(this@EditActivity, android.R.layout.simple_dropdown_item_1line, known.map { it.name }))
             setOnItemClickListener { parent, _, pos, _ ->
                 val name = parent.getItemAtPosition(pos) as String
                 known.firstOrNull { it.name == name }?.let { c -> street.setText(c.street); city.setText(c.city) }
             }
         }
         form.addView(customer)
+        // Bekannte Kunden im Hintergrund sammeln (liest alle gespeicherten Inventuren)
+        Thread {
+            val list = InventoryStore.customers(this)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                known = list
+                customer.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, list.map { it.name }))
+            }
+        }.start()
         form.addView(label("Straße"))
         street = field("Musterstraße 123").also { form.addView(it) }
         form.addView(label("PLZ / Ort"))

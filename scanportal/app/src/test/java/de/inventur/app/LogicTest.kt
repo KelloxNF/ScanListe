@@ -216,3 +216,43 @@ class FixesTest {
         assertTrue("zu langsam: $ms ms", ms < 5_000)
     }
 }
+
+class UndoAndCompactTest {
+    private fun inv() = Inventory(
+        id = "t", customer = Customer("K", "", ""), stichtag = "2026-09-30", letterDate = "2026-09-30",
+        counter = "", writer = "", place = "", timeFrom = "", timeTo = "", blind = false, closed = false,
+        articles = mutableListOf(Article("A", "a", 5, 0), Article("B", "b", 5, 0)), counts = mutableListOf(),
+        estimated = mutableSetOf(), notes = mutableMapOf(), created = 0, updated = 0,
+    )
+
+    @Test fun consecutivePieceScansAreStoredAsOneEntry() {
+        val i = inv()
+        repeat(1000) { i.addCount(CountEntry("A", "Versand", 1, it.toLong())) }
+        assertEquals(1, i.counts.size)
+        assertEquals(1000, i.counted("A"))
+        i.addCount(CountEntry("B", "Versand", 1, 2000))
+        i.addCount(CountEntry("A", "Versand", 1, 2001))
+        assertEquals(3, i.counts.size)
+        assertEquals(1001, i.counted("A"))
+    }
+
+    @Test fun retractTakesBackExactlyTheAddedAmount() {
+        val i = inv()
+        i.addCount(CountEntry("A", "Versand", 17, 1))
+        i.addCount(CountEntry("A", "Versand", 32, 2))   // zusammengefasst zu 49
+        assertTrue(i.retract("A", "Versand", 32))
+        assertEquals(17, i.counted("A"))
+        assertTrue(i.retract("A", "Versand", 17))
+        assertNull(i.counted("A"))
+        assertTrue(!i.retract("A", "Versand", 1))
+    }
+
+    @Test fun correctionIsNotUndoneByRetractOfOtherZone() {
+        val i = inv()
+        i.addCount(CountEntry("A", "Versand", 3, 1))
+        i.setZone("A", "Lager", 2)                      // Korrektur in anderem Bereich
+        assertTrue(i.retract("A", "Versand", 3))        // Rückgängig betrifft nur den Scan
+        assertEquals(2, i.counted("A"))
+        assertEquals(2, i.zoneQty("A", "Lager"))
+    }
+}

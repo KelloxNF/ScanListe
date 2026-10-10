@@ -54,6 +54,10 @@ class CountActivity : AppCompatActivity() {
     private val adapter = Adapter()
     private lateinit var feedback: Feedback
     private var dialog: AlertDialog? = null
+
+    /** Was in dieser Sitzung per Scan/Menge hinzugefügt wurde – nur das macht „Rückgängig“ wieder weg. */
+    private data class Added(val sku: String, val zone: String, val qty: Int)
+    private val undoStack = ArrayDeque<Added>()
     private var receiverRegistered = false
 
     private val scanReceiver = object : BroadcastReceiver() {
@@ -303,10 +307,12 @@ class CountActivity : AppCompatActivity() {
         inv.timeTo = hhmm
         inv.closed = false
         if (!persist()) {
-            inv.removeCount(entry)
+            inv.retract(a.sku, zone, n)
             inv.timeFrom = prevFrom; inv.timeTo = prevTo; inv.closed = prevClosed
             return
         }
+        undoStack.addLast(Added(a.sku, zone, n))
+        if (undoStack.size > 500) undoStack.removeFirst()
         feedback.ok()
         val total = inv.counted(a.sku) ?: 0
         val sign = if (n > 0) "+$n" else "$n"
@@ -374,7 +380,10 @@ class CountActivity : AppCompatActivity() {
                     inv.rename(a.sku, newName)
                     NameStore.put(this, inv.customer.name, a.sku, newName)
                 }
-                for ((z, f) in fields) inv.setZone(a.sku, z, f.text.toString().trim().toIntOrNull())
+                for ((z, f) in fields) {
+                    val v = f.text.toString().trim().toIntOrNull()
+                    if (v != inv.zoneQty(a.sku, z)) inv.setZone(a.sku, z, v)
+                }
                 if (est.isChecked) inv.estimated.add(a.sku) else inv.estimated.remove(a.sku)
                 val n = note.text.toString().trim()
                 if (n.isEmpty()) inv.notes.remove(a.sku) else inv.notes[a.sku] = n
@@ -390,13 +399,24 @@ class CountActivity : AppCompatActivity() {
     }
 
     private fun undo() {
-        val last = inv.removeLastCount()
-        if (last == null) { toast("Noch nichts gezählt"); return }
-        if (persist()) {
-            val name = inv.article(last.sku)?.name ?: last.sku
-            showFeedback("↶ Rückgängig: $name ${last.qty} in ${last.zone}", Colors.barIdle)
+        // Nur Scans/Mengen dieser Sitzung zurücknehmen – Korrekturen aus „Ändern“ bleiben unangetastet.
+        while (true) {
+            val last = undoStack.removeLastOrNull()
+            if (last == null) {
+                toast("Nichts mehr rückgängig zu machen. Korrekturen bitte über „Ändern“ (lange tippen).")
+                return
+            }
+            if (!inv.retract(last.sku, last.zone, last.qty)) continue  // inzwischen per „Ändern“ geändert
+            if (persist()) {
+                val name = inv.article(last.sku)?.name ?: last.sku
+                showFeedback("↶ Rückgängig: $name ${last.qty} in ${last.zone}", Colors.barIdle)
+            } else {
+                inv.addCount(CountEntry(last.sku, last.zone, last.qty, System.currentTimeMillis()))
+                undoStack.addLast(last)
+            }
+            refresh()
+            return
         }
-        refresh()
     }
 
     private fun openResult() {
@@ -485,7 +505,7 @@ class CountActivity : AppCompatActivity() {
                 },
             )
             h.root.setOnClickListener { if (dialog?.isShowing != true) askQuantity(a) }
-            h.root.setOnLongClickListener { editArticle(a); true }
+            h.root.setOnLongClickListener { if (dialog?.isShowing != true) editArticle(a); true }
         }
     }
 }

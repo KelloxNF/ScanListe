@@ -56,9 +56,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        items = InventoryStore.all(this)
-        empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
-        recycler.adapter = Adapter()
+        // Alle Inventuren im Hintergrund laden – bleibt flüssig, auch wenn es über die Jahre viele werden
+        Thread {
+            val loaded = InventoryStore.all(this)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                items = loaded
+                empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+                recycler.adapter = Adapter()
+            }
+        }.start()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
