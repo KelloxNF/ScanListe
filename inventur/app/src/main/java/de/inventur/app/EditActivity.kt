@@ -45,6 +45,7 @@ class EditActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Colors.init(this)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         existing = intent.getStringExtra(CountActivity.EXTRA_ID)?.let { InventoryStore.load(this, it) }
         title = if (existing == null) "Neue Inventur" else "Kopfdaten"
@@ -203,7 +204,7 @@ class EditActivity : AppCompatActivity() {
         target.timeFrom = timeFrom.text.toString().trim()
         target.timeTo = timeTo.text.toString().trim()
         target.blind = blind.isChecked
-        imported?.let { target.articles.clear(); target.articles.addAll(it) }
+        imported?.let { target.articles.clear(); target.articles.addAll(NameStore.apply(this, name, it)) }
         try {
             InventoryStore.save(this, target)
         } catch (e: Exception) {

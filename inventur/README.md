@@ -17,13 +17,15 @@ Differenzen sehen, Anschreiben und Zählliste als PDF erzeugen. Läuft komplett 
    - „Jeder Scan = 1 Stück“ anhaken, wenn jedes Gerät einzeln gescannt wird.
    - Unbekannter Barcode (z. B. EAN statt Artikelnummer): einmal dem Artikel zuordnen – die App merkt es sich je Kunde.
      Haben Neu- und Refware dieselbe EAN, beide ankreuzen; die App fragt dann bei jedem Scan nach.
-   - Langes Tippen auf einen Artikel: Mengen je Bereich korrigieren, „geschätzt“ markieren, Bemerkung.
+   - Langes Tippen auf einen Artikel (oder „Ändern“ im Mengen-Fenster): **Bezeichnung umbenennen**, Mengen je Bereich
+     korrigieren, „geschätzt“ markieren, Bemerkung. Die Artikelnummer bleibt; die neue Bezeichnung merkt sich die App
+     je Kunde und verwendet sie auch bei der nächsten Inventur.
    - ⋮ → „Letzte Zählung rückgängig“.
    - Grün = stimmt, orange = Differenz. Bei **Blindzählung** wird der Sollbestand ausgeblendet.
    - Uhrzeit von/bis wird automatisch aus der ersten und letzten Zählung eingetragen.
 3. **Ergebnis & Dokumente**: Differenzen prüfen, dann
-   - **Anschreiben (PDF)** – Neu- und Refware je Artikel in einer Zeile, gezählte Mengen, Unterschriftsblock.
-     Artikel ohne Bestand entfallen, der Technik-Bestand erscheint nicht.
+   - **Anschreiben (PDF)** – je Artikel eine Zeile mit der vollen Bezeichnung aus der App und der gezählten Menge,
+     Unterschriftsblock. Artikel ohne Bestand entfallen, der Technik-Bestand erscheint nicht.
    - **Zählliste (PDF)** – Anlage mit Soll, Mengen je Bereich, Gesamt, Differenz und Status.
    - **Ergebnis (CSV)** – für Excel.
    Jeweils „Teilen“ (E-Mail, Drive, Druck-App) oder „Auf dem Gerät speichern“.

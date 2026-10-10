@@ -10,6 +10,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Colors.init(this)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         title = "Einstellungen"
 

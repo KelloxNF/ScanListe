@@ -139,25 +139,22 @@ object Documents {
         c().drawText("Lagerbestand zum ${Dates.display(inv.stichtag)}:", left, pdf.y, bold); pdf.y += lh * 1.6f
 
         // Tabelle
-        val colNeu = right - 100f
-        val colRef = right
+        val colQty = right
         val numBold = paint(10.5f, bold = true, align = Paint.Align.RIGHT)
         val num = paint(10.5f, align = Paint.Align.RIGHT)
         val line = Paint().apply { color = Color.GRAY; strokeWidth = 0.5f }
         val thick = Paint().apply { color = Color.BLACK; strokeWidth = 1.2f }
         fun header() {
             c().drawText("Artikel", left, pdf.y, bold)
-            c().drawText("Menge Neuware", colNeu, pdf.y, numBold)
-            c().drawText("Menge Refware", colRef, pdf.y, numBold)
+            c().drawText("Menge", colQty, pdf.y, numBold)
             c().drawLine(left, pdf.y + 5f, right, pdf.y + 5f, thick)
             pdf.y += lh + 3f
         }
         header()
         for (r in inv.letterRows()) {
             if (pdf.y > bottom - 20f) { pdf.newPage(); pdf.y = 90f; header() }
-            c().drawText(fit(r.name, body, colNeu - left - 110f), left, pdf.y, body)
-            c().drawText(fmt(r.neu), colNeu, pdf.y, num)
-            c().drawText(fmt(r.ref), colRef, pdf.y, num)
+            c().drawText(fit(r.name, body, width - 90f), left, pdf.y, body)
+            c().drawText(fmt(r.qty), colQty, pdf.y, num)
             c().drawLine(left, pdf.y + 5f, right, pdf.y + 5f, line)
             pdf.y += lh + 2f
         }

@@ -76,16 +76,44 @@ fun View.lp(width: Int = ViewGroup.LayoutParams.MATCH_PARENT, height: Int = View
 
 fun Context.toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
+/**
+ * Farben. Textfarben passen sich dem Hell-/Dunkelmodus an (Colors.init in jeder Activity),
+ * die Hintergründe der Rückmeldeleiste (bar*) bleiben dunkel mit weißer Schrift.
+ */
 object Colors {
-    val ok = Color.rgb(46, 125, 50)
-    val error = Color.rgb(198, 40, 40)
-    val idle = Color.rgb(90, 100, 114)
-    val warn = Color.rgb(156, 87, 0)
-    val grey = Color.rgb(110, 110, 110)
+    var ok = Color.rgb(46, 125, 50)
+    var error = Color.rgb(198, 40, 40)
+    var warn = Color.rgb(156, 87, 0)
+    var grey = Color.rgb(110, 110, 110)
+    var idle = Color.rgb(90, 100, 114)
     val brand = Color.rgb(31, 56, 100)
+
+    val barOk = Color.rgb(46, 125, 50)
+    val barError = Color.rgb(198, 40, 40)
+    val barWarn = Color.rgb(156, 87, 0)
+    val barIdle = Color.rgb(90, 100, 114)
+
     val okBg = Color.argb(60, 46, 125, 50)
     val diffBg = Color.argb(70, 230, 120, 0)
     val estBg = Color.argb(70, 242, 169, 0)
+
+    fun init(ctx: Context) {
+        val night = (ctx.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        if (night) {
+            ok = Color.rgb(129, 199, 132)
+            error = Color.rgb(239, 154, 154)
+            warn = Color.rgb(255, 183, 77)
+            grey = Color.rgb(170, 170, 170)
+            idle = Color.rgb(176, 190, 197)
+        } else {
+            ok = Color.rgb(46, 125, 50)
+            error = Color.rgb(198, 40, 40)
+            warn = Color.rgb(156, 87, 0)
+            grey = Color.rgb(110, 110, 110)
+            idle = Color.rgb(90, 100, 114)
+        }
+    }
 
     fun status(s: Status) = when (s) {
         Status.STIMMT -> ok

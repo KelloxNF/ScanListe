@@ -158,6 +158,41 @@ object BarcodeStore {
     fun count(ctx: Context, customer: String): Int = read(ctx).optJSONObject(key(customer))?.length() ?: 0
 }
 
+/**
+ * Eigene Artikelbezeichnungen je Kunde (Artikelnummer → Bezeichnung).
+ * Werden bei jedem neuen Import dieses Kunden automatisch wieder angewendet.
+ */
+object NameStore {
+
+    private fun file(ctx: Context) = File(ctx.filesDir, "namen.json")
+
+    private fun read(ctx: Context): JSONObject =
+        runCatching { JSONObject(file(ctx).readText()) }.getOrDefault(JSONObject())
+
+    private fun key(customer: String) = customer.trim().lowercase()
+
+    fun all(ctx: Context, customer: String): Map<String, String> {
+        val c = read(ctx).optJSONObject(key(customer)) ?: return emptyMap()
+        val out = HashMap<String, String>()
+        c.keys().forEach { k -> out[k] = c.optString(k) }
+        return out
+    }
+
+    fun put(ctx: Context, customer: String, sku: String, name: String?) {
+        val root = read(ctx)
+        val c = root.optJSONObject(key(customer)) ?: JSONObject().also { root.put(key(customer), it) }
+        if (name.isNullOrBlank()) c.remove(sku) else c.put(sku, name.trim())
+        InventoryStore.writeAtomic(file(ctx), root.toString())
+    }
+
+    /** Wendet gespeicherte Bezeichnungen auf importierte Artikel an. */
+    fun apply(ctx: Context, customer: String, articles: List<Article>): List<Article> {
+        val names = all(ctx, customer)
+        if (names.isEmpty()) return articles
+        return articles.map { a -> names[a.sku]?.takeIf { it.isNotBlank() }?.let { a.copy(name = it) } ?: a }
+    }
+}
+
 /** Feste Angaben für Anschreiben und Zählung. */
 object Settings {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)

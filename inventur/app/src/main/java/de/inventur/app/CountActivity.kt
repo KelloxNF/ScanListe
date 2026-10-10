@@ -63,6 +63,7 @@ class CountActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Colors.init(this)
         val loaded = intent.getStringExtra(EXTRA_ID)?.let { InventoryStore.load(this, it) }
         if (loaded == null) { finish(); return }
         inv = loaded
@@ -81,7 +82,7 @@ class CountActivity : AppCompatActivity() {
         val zoneRow = hbox().apply { setPadding(dp(8), 0, dp(8), 0) }
         zoneRow.addView(text("Bereich:", 15f, bold = true).apply { setPadding(dp(4), 0, dp(8), 0) })
         zoneButtons = zones.map { z ->
-            button(z) { zone = z; updateZoneButtons(); showFeedback("Bereich $z gewählt", Colors.idle) }.also {
+            button(z) { zone = z; updateZoneButtons(); showFeedback("Bereich $z gewählt", Colors.barIdle) }.also {
                 zoneRow.addView(it, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
         }
@@ -101,7 +102,7 @@ class CountActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             maxLines = 2
             setPadding(dp(12), dp(4), dp(12), dp(4))
-            setBackgroundColor(Colors.idle)
+            setBackgroundColor(Colors.barIdle)
         }
         root.addView(feedbackText)
 
@@ -193,7 +194,7 @@ class CountActivity : AppCompatActivity() {
         if (value.isEmpty()) return
         if (dialog?.isShowing == true) {
             feedback.error()
-            showFeedback("Bitte zuerst das offene Fenster schließen", Colors.error)
+            showFeedback("Bitte zuerst das offene Fenster schließen", Colors.barError)
             return
         }
         inv.findBySku(value)?.let { countArticle(it); return }
@@ -222,7 +223,7 @@ class CountActivity : AppCompatActivity() {
     /** Unbekannter Barcode → einmalig einem oder mehreren Artikeln zuordnen. */
     private fun assignBarcode(code: String) {
         feedback.error()
-        showFeedback("Unbekannter Barcode $code – bitte zuordnen. Gleiche EAN bei Neu- und Refware? Beide ankreuzen.", Colors.warn)
+        showFeedback("Unbekannter Barcode $code – bitte zuordnen. Gleiche EAN bei Neu- und Refware? Beide ankreuzen.", Colors.barWarn)
         val all = inv.listArticles() + inv.articles.filter { it.soll == 0 && !inv.hasCount(it.sku) }
         val checked = BooleanArray(all.size)
         dialog = AlertDialog.Builder(this)
@@ -296,7 +297,7 @@ class CountActivity : AppCompatActivity() {
         feedback.ok()
         val total = inv.counted(a.sku) ?: 0
         val sign = if (n > 0) "+$n" else "$n"
-        showFeedback("✓ ${a.name}  $sign in $zone  →  gesamt $total", Colors.ok)
+        showFeedback("✓ ${a.name}  $sign in $zone  →  gesamt $total", Colors.barOk)
         refresh()
         visible.indexOf(a).takeIf { it >= 0 }?.let { recycler.scrollToPosition(it) }
     }
@@ -305,7 +306,7 @@ class CountActivity : AppCompatActivity() {
         InventoryStore.save(this, inv); true
     } catch (e: Exception) {
         feedback.error()
-        showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", Colors.error)
+        showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", Colors.barError)
         false
     }
 
@@ -313,8 +314,14 @@ class CountActivity : AppCompatActivity() {
 
     private fun editArticle(a: Article) {
         val box = vbox(20)
-        box.addView(text(a.sku, 13f, color = Colors.grey))
-        if (!inv.blind) box.addView(text("Soll: ${a.soll}", 14f))
+        box.addView(text("Artikelnummer ${a.sku}", 13f, color = Colors.grey))
+        box.addView(text("Bezeichnung", 13f, bold = true))
+        val nameField = field().apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setText(a.name)
+        }
+        box.addView(nameField)
+        if (!inv.blind) box.addView(text("Soll: ${a.soll}", 14f).apply { setPadding(0, dp(8), 0, 0) })
         val fields = zones.map { z ->
             val row = hbox()
             row.addView(text("Bereich $z", 15f).lp(dp(110)))
@@ -336,12 +343,17 @@ class CountActivity : AppCompatActivity() {
             .setTitle(a.name)
             .setView(android.widget.ScrollView(this).apply { addView(box) })
             .setPositiveButton("Speichern") { _, _ ->
+                val newName = nameField.text.toString().trim()
+                if (newName.isNotEmpty() && newName != a.name) {
+                    inv.rename(a.sku, newName)
+                    NameStore.put(this, inv.customer.name, a.sku, newName)
+                }
                 for ((z, f) in fields) inv.setZone(a.sku, z, f.text.toString().trim().toIntOrNull())
                 if (est.isChecked) inv.estimated.add(a.sku) else inv.estimated.remove(a.sku)
                 val n = note.text.toString().trim()
                 if (n.isEmpty()) inv.notes.remove(a.sku) else inv.notes[a.sku] = n
                 inv.closed = false
-                if (persist()) showFeedback("✓ ${a.name} gespeichert – gesamt ${inv.counted(a.sku) ?: "–"}", Colors.ok)
+                if (persist()) showFeedback("✓ ${inv.article(a.sku)?.name ?: a.name} gespeichert – gesamt ${inv.counted(a.sku) ?: "–"}", Colors.barOk)
                 refresh()
             }
             .setNegativeButton("Abbrechen", null)
@@ -357,7 +369,7 @@ class CountActivity : AppCompatActivity() {
         inv.counts.remove(last)
         if (persist()) {
             val name = inv.article(last.sku)?.name ?: last.sku
-            showFeedback("↶ Rückgängig: $name ${last.qty} in ${last.zone}", Colors.idle)
+            showFeedback("↶ Rückgängig: $name ${last.qty} in ${last.zone}", Colors.barIdle)
         }
         refresh()
     }

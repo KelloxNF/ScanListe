@@ -100,24 +100,37 @@ class LogicTest {
         assertNull(inv.counted("A1"))
     }
 
-    @Test fun letterRowsMergeNewAndRefurbished() {
+    @Test fun letterRowsUseFullNamesAndCountedQuantity() {
         val inv = inventory(Importer.toArticles(exportRows).articles)
         inv.counts.add(CountEntry("TST20002937Ref", "A", 49, 1))
         inv.counts.add(CountEntry("TST20003013", "A", 26, 2))
         inv.counts.add(CountEntry("TST20003013Ref", "A", 114, 3))
         inv.counts.add(CountEntry("TST20003096", "A", 434, 4))
         inv.counts.add(CountEntry("TST4043972269040Ref", "A", 84, 5))
-        val rows = inv.letterRows()
         assertEquals(
             listOf(
-                LetterRow("Fritz!Box 5530", 0, 49),
-                LetterRow("FRITZ!Box 5590", 26, 114),
-                LetterRow("FRITZ!Box 5690", 434, 0),
-                LetterRow("waipu.tv 4K Stick", 0, 84),
+                LetterRow("Fritz!Box 5530 Ref", 49),
+                LetterRow("FRITZ!Box 5590", 26),
+                LetterRow("FRITZ!Box 5590 Ref", 114),
+                LetterRow("FRITZ!Box 5690", 434),
+                LetterRow("waipu.tv 4K Stick Ref", 84),
             ),
-            rows,
+            inv.letterRows(),
         )
         assertEquals("Ohne Differenz", inv.summary().overall)
+    }
+
+    @Test fun renameChangesOnlyName() {
+        val inv = inventory(Importer.toArticles(exportRows).articles)
+        inv.counts.add(CountEntry("TST20003096", "A", 434, 1))
+        inv.rename("TST20003096", "  FRITZ!Box 5690 (Neuware)  ")
+        val a = inv.article("TST20003096")!!
+        assertEquals("FRITZ!Box 5690 (Neuware)", a.name)
+        assertEquals(434, a.soll)
+        assertEquals(434, inv.counted("TST20003096"))
+        assertEquals("FRITZ!Box 5690 (Neuware)", inv.letterRows().first { it.qty == 434 }.name)
+        inv.rename("TST20003096", "   ")
+        assertEquals("FRITZ!Box 5690 (Neuware)", inv.article("TST20003096")!!.name)
     }
 
     @Test fun csvExportHasHeaderAndDefusesFormulas() {

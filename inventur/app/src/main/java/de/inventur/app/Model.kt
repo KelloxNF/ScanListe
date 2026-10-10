@@ -60,8 +60,8 @@ data class Summary(
         }
 }
 
-/** Eine Zeile im Anschreiben: Neu- und Refware eines Artikels zusammengefasst. */
-data class LetterRow(val name: String, val neu: Int, val ref: Int)
+/** Eine Zeile im Anschreiben: volle Artikelbezeichnung und gezählte Menge. */
+data class LetterRow(val name: String, val qty: Int)
 
 class Inventory(
     val id: String,
@@ -124,17 +124,15 @@ class Inventory(
     }
 
     /**
-     * Zeilen fürs Anschreiben: je Basisartikel eine Zeile mit gezählter Neu- und Refware,
-     * in der Reihenfolge des Systembestands. Artikel ohne Bestand und ohne Zählung entfallen.
+     * Zeilen fürs Anschreiben: je Artikel der Zählliste eine Zeile mit voller Bezeichnung
+     * (wie in der App, also auch mit „Ref“) und gezählter Menge, in der Reihenfolge des Systembestands.
      */
-    fun letterRows(): List<LetterRow> {
-        val order = LinkedHashMap<String, String>()
-        for (a in listArticles()) order.putIfAbsent(a.baseSku, a.baseName)
-        return order.map { (base, name) ->
-            val neu = articles.filter { it.baseSku == base && !it.isRef }.sumOf { counted(it.sku) ?: 0 }
-            val ref = articles.filter { it.baseSku == base && it.isRef }.sumOf { counted(it.sku) ?: 0 }
-            LetterRow(name, neu, ref)
-        }
+    fun letterRows(): List<LetterRow> = listArticles().map { LetterRow(it.name, counted(it.sku) ?: 0) }
+
+    /** Ändert nur die Bezeichnung eines Artikels, die Artikelnummer bleibt. */
+    fun rename(sku: String, newName: String) {
+        val i = articles.indexOfFirst { it.sku == sku }
+        if (i >= 0 && newName.isNotBlank()) articles[i] = articles[i].copy(name = newName.trim())
     }
 
     /** Setzt die Menge eines Artikels in einem Bereich auf einen festen Wert (Korrektur). */

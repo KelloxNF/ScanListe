@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -76,6 +77,7 @@ class SmokeTest {
         )
         counts.forEachIndexed { i, (s, z, q) -> inv.counts.add(CountEntry(s, z, q, i.toLong())) }
         inv.notes["TST20003096"] = "1 Karton beschädigt, Rest in Technik prüfen"
+        inv.rename("TST20002966", "FRITZ!Fon X6 schwarz (umbenannt)")
         InventoryStore.save(ctx, inv)
 
         // PDFs
@@ -109,5 +111,19 @@ class SmokeTest {
         val resIntent = Intent(ctx, ResultActivity::class.java).putExtra(CountActivity.EXTRA_ID, inv.id)
         ActivityScenario.launch<ResultActivity>(resIntent).use { shot("6_ergebnis") }
         ActivityScenario.launch(SettingsActivity::class.java).use { shot("7_einstellungen") }
+
+        // Dunkelmodus
+        instr.runOnMainSync { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES) }
+        ActivityScenario.launch(MainActivity::class.java).use { shot("n1_uebersicht") }
+        ActivityScenario.launch(EditActivity::class.java).use { shot("n2_neue_inventur") }
+        ActivityScenario.launch<CountActivity>(countIntent).use {
+            shot("n3_zaehlen")
+            ctx.sendBroadcast(
+                Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "TST20002974"),
+            )
+            shot("n4_scan_menge")
+        }
+        ActivityScenario.launch<ResultActivity>(resIntent).use { shot("n6_ergebnis") }
+        instr.runOnMainSync { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) }
     }
 }
