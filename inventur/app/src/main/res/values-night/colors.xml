@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Dunkelmodus: helles Blau, damit Knöpfe in Dialogen, Häkchen und Eingabefelder lesbar sind. -->
-<resources>
-    <color name="brand">#9DB8F0</color>
-    <color name="brand_dark">#7C9BD8</color>
-</resources>

@@ -1,0 +1,362 @@
+package de.scanliste.app
+
+import de.scanportal.app.R
+import de.scanportal.app.DataWedge
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Color
+import android.graphics.Typeface
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.Menu
+import android.view.MenuItem
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import java.io.File
+
+/** Eine Liste als Tabelle; hier wird gescannt. */
+class ListActivity : AppCompatActivity() {
+
+    companion object {
+        const val EXTRA_ID = "list_id"
+    }
+
+    private lateinit var list: ScanList
+    private lateinit var adapter: RowAdapter
+    private lateinit var recycler: RecyclerView
+    private lateinit var statusText: TextView
+    private lateinit var feedbackText: TextView
+    private lateinit var input: EditText
+    private var tone: ToneGenerator? = null
+    private var receiverRegistered = false
+
+    private val scanReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val data = intent.getStringExtra(DataWedge.EXTRA_DATA) ?: return
+            handleValue(data, DataWedge.prettyType(intent.getStringExtra(DataWedge.EXTRA_LABEL_TYPE)))
+        }
+    }
+
+    private val exportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+            if (uri != null) exportTo(uri)
+        }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val loaded = intent.getStringExtra(EXTRA_ID)?.let { ListStore.load(this, it) }
+        if (loaded == null) {
+            finish()
+            return
+        }
+        list = loaded
+
+        setContentView(R.layout.activity_list)
+        title = list.name
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        statusText = findViewById(R.id.status)
+        feedbackText = findViewById(R.id.feedback)
+        recycler = findViewById(R.id.recycler)
+        input = findViewById(R.id.input_manual)
+
+        Table.fillHeader(findViewById(R.id.header), list)
+        adapter = RowAdapter(list) { pos -> confirmDeleteRow(pos) }
+        recycler.layoutManager = LinearLayoutManager(this)
+        recycler.adapter = adapter
+
+        findViewById<Button>(R.id.button_add).setOnClickListener { submitManual() }
+        input.setOnEditorActionListener { _, actionId, event ->
+            when {
+                actionId == EditorInfo.IME_ACTION_DONE -> { submitManual(); true }
+                event != null && event.keyCode == KeyEvent.KEYCODE_ENTER -> {
+                    if (event.action == KeyEvent.ACTION_DOWN) submitManual()
+                    true
+                }
+                else -> false
+            }
+        }
+
+        tone = runCatching { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90) }.getOrNull()
+        updateStatus()
+        scrollToEnd()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ContextCompat.registerReceiver(
+            this, scanReceiver, IntentFilter(DataWedge.SCAN_ACTION), ContextCompat.RECEIVER_EXPORTED,
+        )
+        receiverRegistered = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (receiverRegistered) {
+            unregisterReceiver(scanReceiver)
+            receiverRegistered = false
+        }
+    }
+
+    override fun onDestroy() {
+        tone?.release()
+        super.onDestroy()
+    }
+
+    // ---------- Scannen ----------
+
+    private fun submitManual() {
+        val text = input.text.toString()
+        if (text.isBlank()) return
+        val added = handleValue(text, null)
+        if (added) input.text.clear() else input.selectAll()
+    }
+
+    /** Gibt true zurück, wenn der Wert übernommen wurde. */
+    private fun handleValue(raw: String, type: String?): Boolean {
+        return when (val result = list.add(raw)) {
+            is AddResult.Empty -> false
+            is AddResult.Duplicate -> {
+                showFeedback(
+                    "✗ Doppelt – \"${raw.trim()}\" steht schon in Zeile ${result.row + 1}" +
+                        colSuffix(result.col),
+                    error = true,
+                )
+                tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
+                vibrate()
+                recycler.scrollToPosition(result.row)
+                false
+            }
+            is AddResult.Added -> {
+                if (!persist()) {
+                    // Nicht gespeichert: Wert wieder herausnehmen, damit Anzeige und Datei übereinstimmen.
+                    list.undoLast()
+                    adapter.notifyDataSetChanged()
+                    updateStatus()
+                    return false
+                }
+                adapter.notifyDataSetChanged()
+                val typeInfo = if (type != null) " ($type)" else ""
+                showFeedback("✓ ${raw.trim()}$typeInfo", error = false)
+                tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                scrollToEnd()
+                updateStatus()
+                true
+            }
+        }
+    }
+
+    /** Speichert die Liste. Bei einem Fehler (z. B. Speicher voll) Meldung statt Absturz. */
+    private fun persist(): Boolean = try {
+        ListStore.save(this, list)
+        true
+    } catch (e: Exception) {
+        showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", error = true)
+        tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
+        vibrate()
+        false
+    }
+
+    private fun colSuffix(col: Int) = if (list.columns.size > 1) ", Spalte \"${list.columns[col]}\"" else ""
+
+    private fun updateStatus() {
+        val (r, c) = list.nextSlot()
+        val next = if (list.columns.size > 1) "Zeile ${r + 1} → ${list.columns[c]}" else "Zeile ${r + 1}"
+        statusText.text = "${list.valueCount()} Einträge · Nächster Scan: $next"
+    }
+
+    private fun showFeedback(text: String, error: Boolean) {
+        feedbackText.text = text
+        feedbackText.setBackgroundColor(
+            ContextCompat.getColor(this, if (error) R.color.feedback_error else R.color.feedback_ok),
+        )
+    }
+
+    private fun scrollToEnd() {
+        if (list.rows.isNotEmpty()) recycler.scrollToPosition(list.rows.size - 1)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrate() {
+        val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
+            getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            getSystemService(Vibrator::class.java)
+        }
+        vibrator?.vibrate(VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE))
+    }
+
+    // ---------- Bearbeiten ----------
+
+    private fun confirmDeleteRow(pos: Int) {
+        if (pos !in list.rows.indices) return
+        val values = list.rows[pos].cells.filter { it.isNotEmpty() }.joinToString(", ")
+        AlertDialog.Builder(this)
+            .setTitle("Zeile ${pos + 1} löschen?")
+            .setMessage(values)
+            .setPositiveButton("Löschen") { _, _ ->
+                list.removeRow(pos)
+                persist()
+                adapter.notifyDataSetChanged()
+                updateStatus()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun undo() {
+        val removed = list.undoLast()
+        if (removed == null) {
+            Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
+            return
+        }
+        adapter.notifyDataSetChanged()
+        updateStatus()
+        if (persist()) showFeedback("↶ Entfernt: $removed", error = false)
+    }
+
+    // ---------- Export ----------
+
+    private fun exportTo(uri: Uri) {
+        try {
+            contentResolver.openOutputStream(uri)?.use { Csv.write(it, list) }
+            Toast.makeText(this, "CSV gespeichert", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Speichern fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun share() {
+        try {
+            val dir = File(cacheDir, "export").apply { mkdirs() }
+            dir.listFiles()?.forEach { it.delete() }
+            val file = File(dir, Csv.fileName(list))
+            file.outputStream().use { Csv.write(it, list) }
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val send = Intent(Intent.ACTION_SEND)
+                .setType("text/csv")
+                .putExtra(Intent.EXTRA_STREAM, uri)
+                .putExtra(Intent.EXTRA_SUBJECT, list.name)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(Intent.createChooser(send, "CSV teilen"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Teilen fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // ---------- Menü ----------
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.list_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        android.R.id.home -> { finish(); true }
+        R.id.action_undo -> { undo(); true }
+        R.id.action_export -> { exportLauncher.launch(Csv.fileName(list)); true }
+        R.id.action_share -> { share(); true }
+        R.id.action_manual -> {
+            input.requestFocus()
+            getSystemService(InputMethodManager::class.java)?.showSoftInput(input, 0)
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
+    }
+}
+
+/** Baut die Tabellenzeilen (feste Spaltenbreiten, damit Kopf und Zeilen übereinanderliegen). */
+object Table {
+    private const val NR_WIDTH = 52
+    private const val CELL_WIDTH = 190
+    private const val TIME_WIDTH = 160
+
+    private fun dp(ctx: Context, v: Int) = (v * ctx.resources.displayMetrics.density).toInt()
+
+    private fun cell(ctx: Context, widthDp: Int, bold: Boolean = false, alignEnd: Boolean = false) =
+        TextView(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(ctx, widthDp), ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPadding(dp(ctx, 8), dp(ctx, 10), dp(ctx, 8), dp(ctx, 10))
+            textSize = 15f
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+            if (alignEnd) gravity = Gravity.END
+            setTextIsSelectable(false)
+        }
+
+    fun makeRow(ctx: Context, list: ScanList): LinearLayout = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = RecyclerView.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
+        addView(cell(ctx, NR_WIDTH, alignEnd = true))
+        list.columns.forEach { _ -> addView(cell(ctx, CELL_WIDTH)) }
+        if (list.withTimestamp) addView(cell(ctx, TIME_WIDTH))
+    }
+
+    fun fillHeader(header: LinearLayout, list: ScanList) {
+        val ctx = header.context
+        header.removeAllViews()
+        header.addView(cell(ctx, NR_WIDTH, bold = true, alignEnd = true).apply { text = "Nr" })
+        list.columns.forEach { name -> header.addView(cell(ctx, CELL_WIDTH, bold = true).apply { text = name }) }
+        if (list.withTimestamp) header.addView(cell(ctx, TIME_WIDTH, bold = true).apply { text = "Zeit" })
+    }
+}
+
+private class RowAdapter(
+    private val list: ScanList,
+    private val onLongClick: (Int) -> Unit,
+) : RecyclerView.Adapter<RowAdapter.VH>() {
+
+    class VH(val row: LinearLayout) : RecyclerView.ViewHolder(row)
+
+    override fun getItemCount() = list.rows.size
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(Table.makeRow(parent.context, list))
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val ctx = holder.row.context
+        val row = list.rows[position]
+        val (nextRow, nextCol) = list.nextSlot()
+        val stripe = ContextCompat.getColor(ctx, R.color.row_stripe)
+        val highlight = ContextCompat.getColor(ctx, R.color.next_cell)
+
+        holder.row.setBackgroundColor(if (position % 2 == 1) stripe else Color.TRANSPARENT)
+        (holder.row.getChildAt(0) as TextView).text = (position + 1).toString()
+        row.cells.forEachIndexed { i, value ->
+            val tv = holder.row.getChildAt(1 + i) as TextView
+            tv.text = value
+            tv.setBackgroundColor(if (position == nextRow && i == nextCol) highlight else Color.TRANSPARENT)
+        }
+        if (list.withTimestamp) {
+            (holder.row.getChildAt(1 + list.columns.size) as TextView).text = Csv.formatTime(row.time)
+        }
+        holder.row.setOnLongClickListener {
+            onLongClick(holder.bindingAdapterPosition)
+            true
+        }
+    }
+}

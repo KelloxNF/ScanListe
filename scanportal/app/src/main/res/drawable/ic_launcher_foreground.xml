@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Barcode-Striche mit Haken-Plakette, im sicheren Bereich (Mitte 66x66) -->
+    <path android:fillColor="#FFFFFF" android:pathData="M30,36h4v34h-4z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M37,36h2v34h-2z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M42,36h5v34h-5z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M50,36h2v34h-2z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M55,36h3v34h-3z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M61,36h4v34h-4z" />
+    <path android:fillColor="#F2A900" android:pathData="M78,64m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0" />
+    <path android:fillColor="#1F5FAD" android:pathData="M72,64l3,-3l3,3l6,-6l3,3l-9,9z" />
+</vector>

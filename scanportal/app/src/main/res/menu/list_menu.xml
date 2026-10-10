@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_undo"
+        android:icon="@drawable/ic_undo"
+        android:title="Letzten Scan rückgängig"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_export"
+        android:title="Als CSV speichern …"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_share"
+        android:title="CSV teilen (E-Mail, Drive …)"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_manual"
+        android:title="Manuell eingeben"
+        app:showAsAction="never" />
+</menu>

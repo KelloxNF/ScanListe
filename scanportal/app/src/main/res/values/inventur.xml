@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Farben und Theme der Inventur-Bildschirme -->
+<resources>
+    <color name="inv_brand">#1F3864</color>
+    <color name="inv_brand_dark">#15284A</color>
+    <style name="Theme.Inventur" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">@color/inv_brand</item>
+        <item name="colorPrimaryVariant">@color/inv_brand_dark</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorOnSecondary">#000000</item>
+    </style>
+</resources>
