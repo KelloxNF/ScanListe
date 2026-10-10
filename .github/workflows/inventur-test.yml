@@ -36,14 +36,16 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           gradle assembleDebug assembleDebugAndroidTest --no-daemon
 
-      - name: Durchlauf im Emulator (Android 13)
+      - name: Durchlauf im Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
-          target: google_apis
+          api-level: 29
+          target: default
           arch: x86_64
           profile: pixel_4
           disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           script: |
             adb install -r inventur/app/build/outputs/apk/debug/app-debug.apk
             adb install -r inventur/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
