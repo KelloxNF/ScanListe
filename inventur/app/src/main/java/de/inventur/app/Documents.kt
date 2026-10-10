@@ -99,7 +99,9 @@ object Documents {
             }
             p.y = 70f
         }
-        val bottom = 842f - 70f
+        // Unterkante: Platz für die Fußzeile lassen
+        val footerLines = footer.lines().count { it.isNotBlank() }
+        val bottom = 842f - 45f - footerLines * 9f
         pdf.newPage()
         val c = { pdf.c }
 
@@ -161,10 +163,10 @@ object Documents {
         }
 
         // Schluss mit Unterschrift
-        if (pdf.y + 150f > bottom) { pdf.newPage(); pdf.y = 90f }
+        if (pdf.y + 135f > bottom) { pdf.newPage(); pdf.y = 90f }
         pdf.y += lh
         c().drawText("Anlage: Zählliste", left, pdf.y, body); pdf.y += lh * 2
-        c().drawText("Mit freundlichen Grüßen", left, pdf.y, body); pdf.y += lh * 4
+        c().drawText("Mit freundlichen Grüßen", left, pdf.y, body); pdf.y += lh * 3.5f
         c().drawLine(left, pdf.y, left + 190f, pdf.y, Paint().apply { color = Color.BLACK; strokeWidth = 0.7f })
         pdf.y += lh
         if (ceo.isNotBlank()) { c().drawText(ceo, left, pdf.y, body); pdf.y += lh }

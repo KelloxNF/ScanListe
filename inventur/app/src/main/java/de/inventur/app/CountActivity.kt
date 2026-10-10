@@ -222,7 +222,7 @@ class CountActivity : AppCompatActivity() {
     /** Unbekannter Barcode → einmalig einem oder mehreren Artikeln zuordnen. */
     private fun assignBarcode(code: String) {
         feedback.error()
-        showFeedback("Unbekannter Barcode $code – bitte zuordnen", Colors.warn)
+        showFeedback("Unbekannter Barcode $code – bitte zuordnen. Gleiche EAN bei Neu- und Refware? Beide ankreuzen.", Colors.warn)
         val all = inv.listArticles() + inv.articles.filter { it.soll == 0 && !inv.hasCount(it.sku) }
         val checked = BooleanArray(all.size)
         dialog = AlertDialog.Builder(this)
@@ -238,8 +238,6 @@ class CountActivity : AppCompatActivity() {
             .setNegativeButton("Abbrechen", null)
             .setOnDismissListener { if (dialog?.isShowing != true) dialog = null }
             .show()
-        // Hinweis unter dem Titel
-        toast("Gleicher Barcode bei Neu- und Refware? Dann beide Artikel ankreuzen.")
     }
 
     /** Ein Artikel wurde erkannt: entweder +1 oder Menge abfragen. */
@@ -262,8 +260,8 @@ class CountActivity : AppCompatActivity() {
         val d = AlertDialog.Builder(this)
             .setTitle(a.name)
             .setView(box)
-            .setPositiveButton("Hinzufügen", null)
-            .setNeutralButton("Bearbeiten …") { _, _ -> dialog = null; editArticle(a) }
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Ändern") { _, _ -> dialog = null; editArticle(a) }
             .setNegativeButton("Abbrechen", null)
             .create()
         d.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
