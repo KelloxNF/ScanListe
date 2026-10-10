@@ -1,0 +1,74 @@
+name: Inventur-App bauen
+
+on:
+  push:
+    branches: [main, inventur-app]
+    paths:
+      - "inventur/**"
+      - ".github/workflows/inventur.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: inventur
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android-SDK prüfen
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Tests (Import, Zähllogik, CSV)
+        run: gradle testDebugUnitTest --no-daemon
+
+      - name: APK bauen
+        run: gradle assembleDebug --no-daemon
+
+      - name: APK umbenennen
+        run: cp app/build/outputs/apk/debug/app-debug.apk Inventur.apk
+
+      - name: Offline-Prüfung der fertigen APK
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          PERMS=$("$BT/aapt2" dump permissions Inventur.apk)
+          NET_PERMS=$(echo "$PERMS" | grep -E "INTERNET|NETWORK_STATE|WIFI_STATE|ACCOUNTS|SYNC|AD_ID" || true)
+          {
+            echo "## Offline-Prüfung"
+            echo '```'; echo "$PERMS"; echo '```'
+            echo "Netzwerk-/Konto-Berechtigungen: ${NET_PERMS:-keine ✅}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$NET_PERMS" ]; then
+            echo "::error::Die APK enthält Netzwerk- oder Konto-Berechtigungen. Bau abgebrochen."
+            exit 1
+          fi
+
+      - name: Als Build-Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Inventur-apk
+          path: inventur/Inventur.apk
+
+      - name: Als Download unter "Releases" bereitstellen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete inventur-neueste-version --yes --cleanup-tag || true
+          gh release create inventur-neueste-version Inventur.apk \
+            --target "$GITHUB_SHA" \
+            --title "Inventur-App – neueste Version" \
+            --notes "Automatisch gebaut aus Commit ${GITHUB_SHA::7} (Zweig ${GITHUB_REF_NAME}). Datei Inventur.apk herunterladen und auf dem TC22 installieren."
