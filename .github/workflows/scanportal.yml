@@ -49,17 +49,58 @@ jobs:
       - name: Offline-Prüfung der fertigen APK
         run: |
           BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          PERMS=$("$BT/aapt2" dump permissions Scan-Portal.apk)
-          NET_PERMS=$(echo "$PERMS" | grep -E "INTERNET|NETWORK_STATE|WIFI_STATE|ACCOUNTS|SYNC|AD_ID" || true)
+          A="$BT/aapt2"; APK=Scan-Portal.apk
+          PERMS=$("$A" dump permissions $APK)
+          MANIFEST=$("$A" dump xmltree --file AndroidManifest.xml $APK)
+          DEX=$(unzip -p $APK 'classes*.dex' | strings)
+          RULES=$("$A" dump xmltree --file res/xml/data_extraction_rules.xml $APK 2>&1 || true)
+
+          NET_PERMS=$(echo "$PERMS" | grep -E "INTERNET|NETWORK_STATE|WIFI_STATE|ACCOUNTS|SYNC|AD_ID|BLUETOOTH|NFC|LOCATION" || true)
+          BACKUP=$(echo "$MANIFEST" | grep -E "allowBackup|dataExtractionRules|fullBackupContent|usesCleartextTraffic|backupAgent" || true)
+          COMPONENTS=$(echo "$MANIFEST" | grep -E "E: (activity|service|receiver|provider)" -A6 | grep -E "E: |A: android:name|A: android:exported|A: android:permission" | sed 's/^ *//' || true)
+          METADATA=$(echo "$MANIFEST" | grep -A3 "E: meta-data" | grep "android:name" | sed 's/^ *//' || true)
+          LIBS=$(echo "$DEX" | grep -oE "Lcom/google/(firebase|android/gms)[^;]*|Lokhttp3/[^;]*|Lretrofit2/[^;]*|Lio/sentry/[^;]*|Lcom/crashlytics/[^;]*|Landroidx/work/[^;]*" | sort -u | head -20 || true)
+          NETCODE=$(echo "$DEX" | grep -oE "Ljava/net/(HttpURLConnection|Socket|URLConnection|DatagramSocket)[^;]*|Ljavax/net/ssl/[^;]*|Landroid/webkit/WebView;|Landroid/accounts/AccountManager;|Landroid/content/AbstractThreadedSyncAdapter;|Landroid/app/backup/[^;]*" | sort -u || true)
+          PKGS=$(echo "$DEX" | grep -oE "^L[a-z0-9]+/[a-z0-9]+/[a-z0-9]+" | sort | uniq -c | sort -rn | head -25 || true)
+
+          mkdir -p ../pruefbericht
           {
-            echo "## Offline-Prüfung"
-            echo '```'; echo "$PERMS"; echo '```'
-            echo "Netzwerk-/Konto-Berechtigungen: ${NET_PERMS:-keine ✅}"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "# Offline-Prüfbericht Scan-Portal"
+            echo "Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo; echo "## 1. Berechtigungen der APK"; echo '```'; echo "$PERMS"; echo '```'
+            echo "Netzwerk/Konten/Funk: ${NET_PERMS:-keine}"
+            echo; echo "## 2. Backup-/Netz-Einstellungen im Manifest"; echo '```'; echo "$BACKUP"; echo '```'
+            echo; echo "## 3. Regeln für Cloud-Backup und Geräteumzug (data_extraction_rules)"; echo '```'; echo "$RULES"; echo '```'
+            echo; echo "## 4. App-Komponenten (inkl. aus Bibliotheken)"; echo '```'; echo "$COMPONENTS"; echo '```'
+            echo; echo "## 5. Automatisch startende Bibliotheks-Initialisierer (meta-data)"; echo '```'; echo "${METADATA:-keine}"; echo '```'
+            echo; echo "## 6. Cloud-/Tracking-/Hintergrund-Bibliotheken im Code"; echo "${LIBS:-keine}"
+            echo; echo "## 7. Netzwerk-, Konto-, Sync- und Backup-Klassen im Code"; echo '```'; echo "${NETCODE:-keine}"; echo '```'
+            echo; echo "## 8. Größte Code-Pakete (Herkunft des Codes)"; echo '```'; echo "$PKGS"; echo '```'
+          } > ../pruefbericht/PRUEFBERICHT.md
+          cat ../pruefbericht/PRUEFBERICHT.md >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::notice title=Netzwerk-Berechtigungen::${NET_PERMS:-keine}"
+          echo "::notice title=Backup::$(echo "$BACKUP" | tr -s ' ' | tr '\n' ' ')"
+          echo "::notice title=Netzwerk-Klassen::$(echo "${NETCODE:-keine}" | tr '\n' ' ')"
+          echo "::notice title=Initialisierer::$(echo "${METADATA:-keine}" | grep -oE '"[^"]+"' | tr '\n' ' ')"
           if [ -n "$NET_PERMS" ]; then
-            echo "::error::Die APK enthält Netzwerk- oder Konto-Berechtigungen. Bau abgebrochen."
+            echo "::error::Die APK enthält Netzwerk-, Konto- oder Funk-Berechtigungen. Bau abgebrochen."
             exit 1
           fi
+          if ! echo "$BACKUP" | grep -q 'allowBackup.*=false'; then
+            echo "::error::allowBackup ist nicht ausgeschaltet. Bau abgebrochen."
+            exit 1
+          fi
+
+      - name: Prüfbericht in Zweig "scanportal-pruefbericht" ablegen
+        working-directory: pruefbericht
+        run: |
+          git init -q -b scanportal-pruefbericht
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Prüfbericht aus ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" scanportal-pruefbericht
 
       - name: Als Build-Artefakt hochladen
         uses: actions/upload-artifact@v4
