@@ -19,7 +19,6 @@ jobs:
         include:
           - { os: ubuntu-22.04, api: 29, target: default }
           - { os: ubuntu-24.04, api: 30, target: google_apis }
-          - { os: ubuntu-24.04, api: 31, target: aosp_atd }
     name: Emulator API ${{ matrix.api }} (${{ matrix.target }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
