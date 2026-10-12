@@ -47,7 +47,10 @@ jobs:
           arch: x86_64
           profile: pixel_4
           disable-animations: true
-          emulator-boot-timeout: 900
+          emulator-boot-timeout: 1500
+          ram-size: 4096M
+          disk-size: 6000M
+          cores: 2
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           script: |
             adb install -r scanportal/app/build/outputs/apk/debug/app-debug.apk
