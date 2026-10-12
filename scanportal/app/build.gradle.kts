@@ -11,8 +11,8 @@ android {
         applicationId = "de.scanportal.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -28,8 +28,12 @@ android {
     }
 
     buildTypes {
+        // Die ausgelieferte APK ist ein Release-Build: von Android voll optimiert und nicht per USB
+        // auslesbar. Gleicher Schlüssel wie bisher, Updates über die alte Version bleiben möglich.
         release {
             isMinifyEnabled = false
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

@@ -41,10 +41,10 @@ jobs:
           echo "::notice title=Tests::$T Tests ausgeführt, $F fehlgeschlagen"
 
       - name: APK bauen
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleRelease --no-daemon
 
       - name: APK umbenennen
-        run: cp app/build/outputs/apk/debug/app-debug.apk Scan-Portal.apk
+        run: cp app/build/outputs/apk/release/app-release.apk Scan-Portal.apk
 
       - name: Offline-Prüfung der fertigen APK
         run: |
@@ -56,7 +56,7 @@ jobs:
           RULES=$("$A" dump xmltree --file res/xml/data_extraction_rules.xml $APK 2>&1 || true)
 
           NET_PERMS=$(echo "$PERMS" | grep -E "INTERNET|NETWORK_STATE|WIFI_STATE|ACCOUNTS|SYNC|AD_ID|BLUETOOTH|NFC|LOCATION" || true)
-          BACKUP=$(echo "$MANIFEST" | grep -E "allowBackup|dataExtractionRules|fullBackupContent|usesCleartextTraffic|backupAgent" || true)
+          BACKUP=$(echo "$MANIFEST" | grep -E "allowBackup|dataExtractionRules|fullBackupContent|usesCleartextTraffic|backupAgent|debuggable" || true)
           COMPONENTS=$(echo "$MANIFEST" | grep -E "E: (activity|service|receiver|provider)" -A6 | grep -E "E: |A: android:name|A: android:exported|A: android:permission" | sed 's/^ *//' || true)
           METADATA=$(echo "$MANIFEST" | grep -A3 "E: meta-data" | grep "android:name" | sed 's/^ *//' || true)
           LIBS=$(echo "$DEX" | grep -oE "Lcom/google/(firebase|android/gms)[^;]*|Lokhttp3/[^;]*|Lretrofit2/[^;]*|Lio/sentry/[^;]*|Lcom/crashlytics/[^;]*|Landroidx/work/[^;]*" | sort -u | head -20 || true)
@@ -85,6 +85,10 @@ jobs:
           echo "::notice title=Initialisierer::$(echo "${METADATA:-keine}" | grep -oE '"[^"]+"' | tr '\n' ' ')"
           if [ -n "$NET_PERMS" ]; then
             echo "::error::Die APK enthält Netzwerk-, Konto- oder Funk-Berechtigungen. Bau abgebrochen."
+            exit 1
+          fi
+          if echo "$MANIFEST" | grep -q 'debuggable.*=true'; then
+            echo "::error::Die APK ist eine Debug-Version (per USB auslesbar, langsamer). Bau abgebrochen."
             exit 1
           fi
           if ! echo "$BACKUP" | grep -q 'allowBackup.*=false'; then
