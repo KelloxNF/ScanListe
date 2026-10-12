@@ -13,7 +13,15 @@ permissions:
 
 jobs:
   emulator:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, api: 29, target: default }
+          - { os: ubuntu-24.04, api: 30, target: google_apis }
+          - { os: ubuntu-24.04, api: 31, target: aosp_atd }
+    name: Emulator API ${{ matrix.api }} (${{ matrix.target }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
@@ -42,8 +50,8 @@ jobs:
       - name: Durchlauf im Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
           arch: x86_64
           profile: pixel_4
           disable-animations: true
@@ -64,13 +72,13 @@ jobs:
       - name: Ergebnis prüfen
         run: |
           cat instrument.txt
-          grep -q "OK (1 test)" instrument.txt && echo "::notice title=Emulator-Test::Durchlauf erfolgreich" || { echo "::error title=Emulator-Test::Durchlauf fehlgeschlagen"; exit 1; }
+          grep -q "OK (1 test)" instrument.txt && echo "::notice title=Emulator-Test API ${{ matrix.api }}::Durchlauf erfolgreich" || { echo "::error title=Emulator-Test::Durchlauf fehlgeschlagen"; exit 1; }
 
       - name: Screenshots hochladen
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots
+          name: screenshots-api${{ matrix.api }}
           path: shots/
 
       - name: Screenshots in Zweig "scanportal-screenshots" ablegen
@@ -78,9 +86,9 @@ jobs:
         run: |
           [ -d shots ] || exit 0
           cd shots
-          git init -q -b scanportal-screenshots
+          git init -q -b scanportal-screenshots-api${{ matrix.api }}
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
           git commit -q -m "Screenshots aus ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" scanportal-screenshots
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" scanportal-screenshots-api${{ matrix.api }}
