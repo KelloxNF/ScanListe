@@ -293,3 +293,21 @@ class ThirdRoundTest {
         assertTrue(!java.io.File(dir, "x.json.tmp").exists())
     }
 }
+
+class DeleteArticleTest {
+    @Test fun removeArticleDropsEverything() {
+        val i = Inventory(
+            id = "t", customer = Customer("K", "", ""), stichtag = "2026-09-30", letterDate = "2026-09-30",
+            counter = "", writer = "", place = "", timeFrom = "", timeTo = "", blind = false, closed = false,
+            articles = mutableListOf(Article("A", "a", 5, 0), Article("B", "b", 3, 0)), counts = mutableListOf(),
+            estimated = mutableSetOf(), notes = mutableMapOf(), created = 0, updated = 0,
+        )
+        i.addCount(CountEntry("A", "Lager", 5, 1)); i.addCount(CountEntry("B", "Lager", 3, 2))
+        i.estimated.add("A"); i.notes["A"] = "x"
+        i.removeArticle("A")
+        assertEquals(listOf("B"), i.listArticles().map { it.sku })
+        assertNull(i.counted("A")); assertTrue("A" !in i.estimated); assertTrue("A" !in i.notes)
+        assertEquals(listOf(LetterRow("b", 3)), i.letterRows())
+        assertEquals("Ohne Differenz", i.summary().overall)
+    }
+}

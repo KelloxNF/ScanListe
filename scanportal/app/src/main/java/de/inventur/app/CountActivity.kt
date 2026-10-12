@@ -47,7 +47,10 @@ class CountActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var feedbackText: TextView
-    private lateinit var pieceMode: CheckBox
+    private lateinit var fixedBox: CheckBox
+    private lateinit var fixedQty: EditText
+    private lateinit var fixedRow: LinearLayout
+    private lateinit var filterInfo: TextView
     private lateinit var search: EditText
     private lateinit var recycler: RecyclerView
     private lateinit var zoneButtons: List<Button>
@@ -98,14 +101,29 @@ class CountActivity : AppCompatActivity() {
         }
         root.addView(zoneRow)
 
-        pieceMode = CheckBox(this).apply {
-            text = "Jeder Scan = 1 Stück (sonst Menge eingeben)"
-            textSize = 14f
-            isChecked = getSharedPreferences("count", MODE_PRIVATE).getBoolean("piece", false)
-            setOnCheckedChangeListener { _, c -> getSharedPreferences("count", MODE_PRIVATE).edit().putBoolean("piece", c).apply() }
-            setPadding(dp(4), 0, 0, 0)
+        // Feste Menge je Scan (nur für diese Sitzung): z. B. 20 bei vollen Kartons, 1 für Einzelscans
+        fixedRow = hbox().apply { setPadding(dp(8), dp(2), dp(8), dp(2)) }
+        fixedBox = CheckBox(this).apply {
+            text = "Feste Menge je Scan:"
+            textSize = 16f
+            setOnCheckedChangeListener { _, c ->
+                if (c && fixedQty.text.isNullOrBlank()) fixedQty.setText("1")
+                updateFixedRow()
+            }
         }
-        root.addView(pieceMode.lp().apply { setPadding(dp(8), 0, dp(8), 0) })
+        fixedQty = field("1", number = true).apply {
+            textSize = 20f
+            gravity = Gravity.CENTER
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: Editable?) { updateFixedRow() }
+            })
+        }
+        fixedRow.addView(fixedBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        fixedRow.addView(fixedQty, LinearLayout.LayoutParams(dp(110), ViewGroup.LayoutParams.WRAP_CONTENT))
+        fixedRow.addView(text(" Stk.", 16f))
+        root.addView(fixedRow)
 
         feedbackText = text("Bereit – Artikel scannen oder antippen", 16f, color = Color.WHITE).apply {
             minHeight = dp(44)
@@ -116,7 +134,7 @@ class CountActivity : AppCompatActivity() {
         }
         root.addView(feedbackText)
 
-        search = field("Suchen oder Artikelnummer eingeben").apply {
+        search = field("🔍 Filtern: Name oder Artikelnummer").apply {
             imeOptions = EditorInfo.IME_ACTION_DONE
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -136,7 +154,12 @@ class CountActivity : AppCompatActivity() {
                 enter
             }
         }
-        root.addView(search.lp().apply { setPadding(dp(12), dp(8), dp(12), dp(8)) })
+        val searchRow = hbox().apply { setPadding(dp(12), dp(4), dp(4), dp(0)) }
+        searchRow.addView(search, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        searchRow.addView(button("✕") { search.setText("") }.apply { textSize = 18f }, LinearLayout.LayoutParams(dp(56), ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(searchRow)
+        filterInfo = text(sizeSp = 13f, color = Colors.grey).apply { setPadding(dp(14), 0, dp(14), dp(4)) }
+        root.addView(filterInfo)
 
         recycler = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@CountActivity)
@@ -188,6 +211,8 @@ class CountActivity : AppCompatActivity() {
         val f = filter.lowercase()
         visible = if (f.isEmpty()) base else base.filter { it.name.lowercase().contains(f) || it.sku.lowercase().contains(f) }
         adapter.notifyDataSetChanged()
+        filterInfo.text = if (f.isEmpty()) "" else "Filter aktiv: ${visible.size} von ${base.size} Artikeln"
+        filterInfo.visibility = if (f.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
         val s = inv.summary()
         statusText.text = "Stichtag ${Dates.display(inv.stichtag)} · ${s.articles - s.notCounted} von ${s.articles} Artikeln gezählt" +
             (if (inv.blind) " · Blindzählung" else "") + (if (inv.closed) " · abgeschlossen" else "")
@@ -253,12 +278,23 @@ class CountActivity : AppCompatActivity() {
 
     /** Ein Artikel wurde erkannt: entweder +1 oder Menge abfragen. */
     private fun countArticle(a: Article) {
-        if (pieceMode.isChecked) {
-            add(a, 1)
+        val fixed = fixedAmount()
+        if (fixed != null) {
+            add(a, fixed)
         } else {
             feedback.ok()
             askQuantity(a)
         }
+    }
+
+    /** Feste Menge je Scan, falls eingeschaltet und gültig, sonst null (= Menge abfragen). */
+    private fun fixedAmount(): Int? =
+        if (fixedBox.isChecked) fixedQty.text.toString().trim().toIntOrNull()?.takeIf { it > 0 } else null
+
+    private fun updateFixedRow() {
+        val on = fixedAmount() != null
+        fixedRow.setBackgroundColor(if (on) Colors.estBg else Color.TRANSPARENT)
+        fixedBox.setTypeface(null, if (on) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
     }
 
     private fun askQuantity(a: Article) {
@@ -401,10 +437,38 @@ class CountActivity : AppCompatActivity() {
                 refresh()
             }
             .setNegativeButton("Abbrechen", null)
+            .setNeutralButton("Löschen") { _, _ -> dialog = null; confirmDelete(a) }
             .create()
         d.setOnDismissListener { if (dialog === d) dialog = null }
         dialog = d
         d.show()
+    }
+
+    private fun confirmDelete(a: Article) {
+        val c = inv.counted(a.sku)
+        dialog = AlertDialog.Builder(this)
+            .setTitle("Artikel löschen?")
+            .setMessage(
+                "${a.name}\n${a.sku}\n\nDer Artikel wird aus dieser Inventur entfernt" +
+                    (if (c != null) " – mit allen gezählten Mengen ($c Stk.)" else "") +
+                    ". Er erscheint dann weder in der Zählliste noch im Anschreiben.\n\n" +
+                    "Bei einem erneuten Import des Systembestands ist er wieder da.",
+            )
+            .setPositiveButton("Löschen") { _, _ ->
+                dialog = null
+                val backup = InventoryStore.toJson(inv).toString()
+                inv.removeArticle(a.sku)
+                undoStack.removeAll { it.sku == a.sku }
+                if (persist()) {
+                    showFeedback("🗑 ${a.name} gelöscht", Colors.barIdle)
+                } else {
+                    inv = InventoryStore.fromJson(org.json.JSONObject(backup))
+                }
+                refresh()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .setOnDismissListener { if (dialog?.isShowing != true) dialog = null }
+            .show()
     }
 
     private fun undo() {
@@ -474,16 +538,16 @@ class CountActivity : AppCompatActivity() {
                 setPadding(dp(12), dp(10), dp(12), dp(10))
             }
             val left = ctx.vbox()
-            val name = ctx.text(sizeSp = 16f, bold = true)
-            val sku = ctx.text(sizeSp = 12f, color = Colors.grey)
-            val zt = ctx.text(sizeSp = 13f)
+            val name = ctx.text(sizeSp = 20f, bold = true)
+            val sku = ctx.text(sizeSp = 14f, color = Colors.grey)
+            val zt = ctx.text(sizeSp = 16f)
             left.addView(name); left.addView(sku); left.addView(zt)
             root.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val right = ctx.vbox().apply { gravity = Gravity.END }
-            val count = ctx.text(sizeSp = 24f, bold = true).apply { gravity = Gravity.END }
-            val soll = ctx.text(sizeSp = 12f, color = Colors.grey).apply { gravity = Gravity.END }
+            val count = ctx.text(sizeSp = 28f, bold = true).apply { gravity = Gravity.END }
+            val soll = ctx.text(sizeSp = 18f, bold = true, color = Colors.grey).apply { gravity = Gravity.END }
             right.addView(count); right.addView(soll)
-            root.addView(right, LinearLayout.LayoutParams(dp(96), ViewGroup.LayoutParams.WRAP_CONTENT))
+            root.addView(right, LinearLayout.LayoutParams(dp(118), ViewGroup.LayoutParams.WRAP_CONTENT))
             return VH(root, name, sku, zt, count, soll)
         }
 

@@ -191,6 +191,15 @@ class Inventory(
      */
     fun letterRows(): List<LetterRow> = listArticles().map { LetterRow(it.name, counted(it.sku) ?: 0) }
 
+    /** Entfernt einen Artikel samt seiner Zählungen, Schätz-Markierung und Bemerkung aus dieser Inventur. */
+    fun removeArticle(sku: String) {
+        articles.removeAll { it.sku == sku }
+        _counts.removeAll { it.sku == sku }
+        estimated.remove(sku)
+        notes.remove(sku)
+        index = null
+    }
+
     /** Ändert nur die Bezeichnung eines Artikels, die Artikelnummer bleibt. */
     fun rename(sku: String, newName: String) {
         val i = articles.indexOfFirst { it.sku == sku }

@@ -115,6 +115,21 @@ class SmokeTest {
             }
             shot("8_artikel_bearbeiten")
         }
+        ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
+            // Feste Menge 20 je Scan + Filter „5590“, dann zwei Scans
+            sc.onActivity { act ->
+                fun <T> f(n: String): T { val x = CountActivity::class.java.getDeclaredField(n); x.isAccessible = true; @Suppress("UNCHECKED_CAST") return x.get(act) as T }
+                f<android.widget.EditText>("fixedQty").setText("20")
+                f<android.widget.CheckBox>("fixedBox").isChecked = true
+                f<android.widget.EditText>("search").setText("5590")
+            }
+            repeat(2) {
+                ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "TST20003013"))
+                instr.waitForIdleSync(); Thread.sleep(400)
+            }
+            shot("9_feste_menge_filter")
+            assertEquals(66, InventoryStore.load(ctx, inv.id)!!.counted("TST20003013"))
+        }
         ActivityScenario.launch<CountActivity>(countIntent).use {
             // Unbekannter Barcode → Zuordnen-Dialog
             ctx.sendBroadcast(
