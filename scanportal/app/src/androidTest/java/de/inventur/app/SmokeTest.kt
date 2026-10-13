@@ -120,6 +120,7 @@ class SmokeTest {
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
             // Feste Menge 20 je Scan, Artikel öffnen, zwei Scans, ein falscher Artikel
             sc.onActivity { act -> setField(act, "fixedOn", true); setField(act, "fixedN", 20); open(act, "TST20003013") }
+            instr.waitForIdleSync(); Thread.sleep(500)
             scan("TST20003013"); scan("TST20003013")
             scan("TST20003096")   // falscher Artikel – darf nicht zählen
             shot("9_artikel_fenster")
@@ -128,12 +129,13 @@ class SmokeTest {
             assertEquals(433, now.counted("TST20003096"))
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
-            // Korrigieren-Fenster mit „Bestand stimmt“
+            // Artikel-Bildschirm, dann „Mengen je Bereich korrigieren“
+            sc.onActivity { act -> open(act, "TST20002974") }
+            shot("8a_artikel_offen")
             sc.onActivity { act ->
-                open(act, "TST20002974")
-                val m = CountActivity::class.java.getDeclaredMethod("editArticle", Article::class.java)
+                val m = CountActivity::class.java.getDeclaredMethod("sheetZones")
                 m.isAccessible = true
-                m.invoke(act, inv.article("TST20002974"))
+                m.invoke(act)
             }
             shot("8_korrigieren")
         }
@@ -155,6 +157,7 @@ class SmokeTest {
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
             shot("n3_zaehlen")
             sc.onActivity { act -> open(act, "TST20003096") }
+            instr.waitForIdleSync(); Thread.sleep(500)
             shot("n4_artikel_fenster")
         }
         ActivityScenario.launch<ResultActivity>(resIntent).use { shot("n6_ergebnis") }
