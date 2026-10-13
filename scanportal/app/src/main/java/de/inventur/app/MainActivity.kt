@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
 
     private val saveCsv = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
         if (uri != null) runCatching {
-            contentResolver.openOutputStream(uri)?.use { CsvExport.write(it, CsvExport.overview(items)) }
+            contentResolver.openOutputStream(uri, "wt")?.use { CsvExport.write(it, CsvExport.overview(InventoryStore.all(this))) }
             toast("Gesamtübersicht gespeichert")
         }.onFailure { toast("Speichern fehlgeschlagen: ${it.message}") }
     }
@@ -67,11 +67,19 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         scanHint.register()
+        reload()
+    }
+
+    /** Zählt die Ladevorgänge – nur das Ergebnis des neuesten wird angezeigt. */
+    private var loadGen = 0
+
+    private fun reload() {
+        val gen = ++loadGen
         // Alle Inventuren im Hintergrund laden – bleibt flüssig, auch wenn es über die Jahre viele werden
         Thread {
             val loaded = InventoryStore.all(this)
             runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (isFinishing || isDestroyed || gen != loadGen) return@runOnUiThread
                 items = loaded
                 empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
                 recycler.adapter = Adapter()
@@ -91,7 +99,7 @@ class MainActivity : AppCompatActivity() {
             1 -> runCatching {
                 Share.clear(this)
                 val f = Share.file(this, "Inventur_Gesamtuebersicht.csv")
-                f.outputStream().use { CsvExport.write(it, CsvExport.overview(items)) }
+                f.outputStream().use { CsvExport.write(it, CsvExport.overview(InventoryStore.all(this))) }
                 Share.send(this, f, "text/csv", "Inventur – Gesamtübersicht")
             }.onFailure { toast("Teilen fehlgeschlagen: ${it.message}") }
             2 -> saveCsv.launch("Inventur_Gesamtuebersicht.csv")
@@ -116,7 +124,7 @@ class MainActivity : AppCompatActivity() {
                     3 -> AlertDialog.Builder(this)
                         .setTitle("Inventur löschen?")
                         .setMessage("${inv.title()}\n\nAlle Zählungen dieser Inventur gehen verloren.")
-                        .setPositiveButton("Löschen") { _, _ -> InventoryStore.delete(this, inv.id); onResume() }
+                        .setPositiveButton("Löschen") { _, _ -> InventoryStore.delete(this, inv.id); reload() }
                         .setNegativeButton("Abbrechen", null)
                         .show()
                 }
@@ -137,10 +145,7 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, 0, dp(12), 0)
                 isClickable = true
                 isFocusable = true
-                val attrs = intArrayOf(android.R.attr.selectableItemBackground)
-                val ta = ctx.obtainStyledAttributes(attrs)
-                background = ta.getDrawable(0)
-                ta.recycle()
+                background = ctx.touchFeedback()
             }
             val bar = View(ctx)
             root.addView(bar, LinearLayout.LayoutParams(dp(6), dp(72)))

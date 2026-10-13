@@ -130,21 +130,29 @@ object BarcodeStore {
     private fun read(ctx: Context): JSONObject = cache
         ?: runCatching { JSONObject(file(ctx).readText()) }.getOrDefault(JSONObject()).also { cache = it }
 
-    private fun write(ctx: Context, root: JSONObject) {
+    /**
+     * Speichert und liefert false, wenn das nicht ging (z. B. Speicher voll). Dann wird der
+     * Zwischenspeicher verworfen, damit er wieder genau dem Stand in der Datei entspricht.
+     */
+    private fun write(ctx: Context, root: JSONObject): Boolean = try {
         InventoryStore.writeAtomic(file(ctx), root.toString())
         cache = root
+        true
+    } catch (e: Exception) {
+        cache = null
+        false
     }
 
     private fun key(customer: String) = customer.trim().lowercase()
 
     /** Zuordnungen mitnehmen, wenn ein Kunde umbenannt wird. */
-    fun renameCustomer(ctx: Context, from: String, to: String) {
-        if (key(from) == key(to)) return
+    fun renameCustomer(ctx: Context, from: String, to: String): Boolean {
+        if (key(from) == key(to)) return true
         val root = read(ctx)
-        val old = root.optJSONObject(key(from)) ?: return
-        if (root.has(key(to))) return
+        val old = root.optJSONObject(key(from)) ?: return true
+        if (root.has(key(to))) return true
         root.put(key(to), old); root.remove(key(from))
-        write(ctx, root)
+        return write(ctx, root)
     }
 
     fun lookup(ctx: Context, customer: String, barcode: String): List<String> {
@@ -153,17 +161,19 @@ object BarcodeStore {
         return List(a.length()) { a.getString(it) }
     }
 
-    fun assign(ctx: Context, customer: String, barcode: String, skus: List<String>) {
+    /** false = nicht gespeichert (Speicher voll). */
+    fun assign(ctx: Context, customer: String, barcode: String, skus: List<String>): Boolean {
         val root = read(ctx)
         val c = root.optJSONObject(key(customer)) ?: JSONObject().also { root.put(key(customer), it) }
         if (skus.isEmpty()) c.remove(barcode.trim()) else c.put(barcode.trim(), JSONArray(skus))
-        write(ctx, root)
+        return write(ctx, root)
     }
 
-    fun clear(ctx: Context, customer: String) {
+    /** false = nicht gespeichert (Speicher voll). */
+    fun clear(ctx: Context, customer: String): Boolean {
         val root = read(ctx)
         root.remove(key(customer))
-        write(ctx, root)
+        return write(ctx, root)
     }
 
     fun count(ctx: Context, customer: String): Int = read(ctx).optJSONObject(key(customer))?.length() ?: 0
@@ -189,21 +199,25 @@ object NameStore {
         return out
     }
 
-    fun put(ctx: Context, customer: String, sku: String, name: String?) {
+    private fun write(ctx: Context, root: JSONObject): Boolean =
+        runCatching { InventoryStore.writeAtomic(file(ctx), root.toString()) }.isSuccess
+
+    /** false = nicht gespeichert (Speicher voll). */
+    fun put(ctx: Context, customer: String, sku: String, name: String?): Boolean {
         val root = read(ctx)
         val c = root.optJSONObject(key(customer)) ?: JSONObject().also { root.put(key(customer), it) }
         if (name.isNullOrBlank()) c.remove(sku) else c.put(sku, name.trim())
-        InventoryStore.writeAtomic(file(ctx), root.toString())
+        return write(ctx, root)
     }
 
     /** Eigene Bezeichnungen mitnehmen, wenn ein Kunde umbenannt wird. */
-    fun renameCustomer(ctx: Context, from: String, to: String) {
-        if (key(from) == key(to)) return
+    fun renameCustomer(ctx: Context, from: String, to: String): Boolean {
+        if (key(from) == key(to)) return true
         val root = read(ctx)
-        val old = root.optJSONObject(key(from)) ?: return
-        if (root.has(key(to))) return
+        val old = root.optJSONObject(key(from)) ?: return true
+        if (root.has(key(to))) return true
         root.put(key(to), old); root.remove(key(from))
-        InventoryStore.writeAtomic(file(ctx), root.toString())
+        return write(ctx, root)
     }
 
     /** Wendet gespeicherte Bezeichnungen auf importierte Artikel an. */

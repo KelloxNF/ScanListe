@@ -136,7 +136,11 @@ class ArticleSheets(private val host: CountActivity) {
                 z to f
             }
             box.addView(text("Leeres Feld = in diesem Bereich nicht gezählt.", 13f, color = Colors.appSub).apply { setPadding(0, dp(6), 0, 0) })
+            val err = text("", 13f, color = Colors.badEdge)
+            box.addView(err)
             open("Mengen je Bereich", if (inv.blind) null else "Soll: ${a.soll}", box, "Speichern") {
+                val bad = fields.firstOrNull { (_, f) -> f.text.isNotBlank() && f.text.toString().trim().toIntOrNull() == null }
+                if (bad != null) { err.text = "Ungültige Menge bei ${bad.first}"; return@open false }
                 val values = fields.associate { (z, f) -> z to f.text.toString().trim().toIntOrNull() }
                 if (session.setZones(a.sku, values)) screen.say("✓ gespeichert – gesamt ${inv.counted(a.sku) ?: "–"}", Colors.barOk) else saveFailed()
                 screen.render()
@@ -165,8 +169,8 @@ class ArticleSheets(private val host: CountActivity) {
             open("Bezeichnung umbenennen", "Artikelnummer ${a.sku} bleibt. Die App merkt sich die neue Bezeichnung für diesen Kunden.", f, "Speichern") {
                 val v = f.text.toString().trim()
                 if (v.isNotEmpty() && v != a.name) {
-                    NameStore.put(this, inv.customer.name, a.sku, v)
-                    if (!session.rename(a.sku, v)) saveFailed()
+                    val saved = session.rename(a.sku, v) && NameStore.put(this, inv.customer.name, a.sku, v)
+                    if (!saved) saveFailed()
                     cur = inv.article(a.sku)
                 }
                 screen.render()
@@ -203,8 +207,9 @@ class ArticleSheets(private val host: CountActivity) {
             "Die App merkt sich für diesen Kunden: $code = ${a.name} (${a.sku}). Haben Neu- und Refware dieselbe EAN, gilt der Barcode nur in dem Artikel, der gerade offen ist.",
             null, "Zuordnen",
         ) {
-            BarcodeStore.assign(this, inv.customer.name, code, (mapped + a.sku).distinct())
-            screen.view.post { countArticle(a) }
+            if (BarcodeStore.assign(this, inv.customer.name, code, (mapped + a.sku).distinct())) {
+                screen.view.post { countArticle(a) }
+            } else saveFailed()
             true
         }
     }

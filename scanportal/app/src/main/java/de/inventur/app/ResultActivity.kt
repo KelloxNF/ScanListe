@@ -29,7 +29,12 @@ class ResultActivity : AppCompatActivity() {
     private lateinit var summaryText: TextView
     private lateinit var closeButton: Button
     private lateinit var recycler: RecyclerView
-    private var pending: ((OutputStream) -> Unit)? = null
+    /**
+     * Welches Dokument gerade über „Auf dem Gerät speichern“ angelegt wird ("letter", "sheet", "csv").
+     * Wird gesichert, falls Android die App öffnet, während die Dateiauswahl offen ist –
+     * sonst entstünde eine leere Datei.
+     */
+    private var pendingKind: String? = null
 
     private val savePdf = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri: Uri? -> writePending(uri) }
     private val saveCsv = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? -> writePending(uri) }
@@ -37,6 +42,7 @@ class ResultActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Colors.init(this)
+        pendingKind = savedInstanceState?.getString("pendingKind")
         val loaded = intent.getStringExtra(CountActivity.EXTRA_ID)?.let { InventoryStore.load(this, it) }
         if (loaded == null) { finish(); return }
         inv = loaded
@@ -67,6 +73,11 @@ class ResultActivity : AppCompatActivity() {
         root.addView(recycler.lp(height = 0, weight = 1f))
         setContentView(root)
         render()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("pendingKind", pendingKind)
     }
 
     private fun render() {
@@ -118,12 +129,17 @@ class ResultActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------------- Dokumente
 
+    /** Schreibt das Dokument der Art [kind] ("letter", "sheet", "csv"). */
+    private fun writer(kind: String): (OutputStream) -> Unit = when (kind) {
+        "letter" -> { out -> Documents.letter(inv, Settings.sender(this), Settings.footer(this), Settings.ceo(this), out) }
+        "sheet" -> { out -> Documents.countSheet(inv, zones, out) }
+        else -> { out -> CsvExport.write(out, CsvExport.result(inv, zones)) }
+    }
+
     private fun letter() {
         val s = inv.summary()
         val go = {
-            deliver("${Documents.fileBase(inv)}_Anschreiben.pdf", "application/pdf", "Inventur ${inv.customer.name} – Anschreiben") { out ->
-                Documents.letter(inv, Settings.sender(this), Settings.footer(this), Settings.ceo(this), out)
-            }
+            deliver("letter", "${Documents.fileBase(inv)}_Anschreiben.pdf", "application/pdf", "Inventur ${inv.customer.name} – Anschreiben")
         }
         val hints = buildList {
             if (s.notCounted > 0) add("${s.notCounted} Artikel sind noch nicht gezählt und erscheinen im Anschreiben mit 0.")
@@ -138,19 +154,15 @@ class ResultActivity : AppCompatActivity() {
     }
 
     private fun sheet() {
-        deliver("${Documents.fileBase(inv)}_Zaehlliste.pdf", "application/pdf", "Inventur ${inv.customer.name} – Zählliste") { out ->
-            Documents.countSheet(inv, zones, out)
-        }
+        deliver("sheet", "${Documents.fileBase(inv)}_Zaehlliste.pdf", "application/pdf", "Inventur ${inv.customer.name} – Zählliste")
     }
 
     private fun csv() {
-        deliver("${Documents.fileBase(inv)}_Ergebnis.csv", "text/csv", "Inventur ${inv.customer.name} – Ergebnis") { out ->
-            CsvExport.write(out, CsvExport.result(inv, zones))
-        }
+        deliver("csv", "${Documents.fileBase(inv)}_Ergebnis.csv", "text/csv", "Inventur ${inv.customer.name} – Ergebnis")
     }
 
     /** Fragt: teilen (E-Mail, Drive, Drucken …) oder auf dem Gerät speichern. */
-    private fun deliver(name: String, mime: String, subject: String, writer: (OutputStream) -> Unit) {
+    private fun deliver(kind: String, name: String, mime: String, subject: String) {
         AlertDialog.Builder(this)
             .setTitle(name)
             .setItems(arrayOf("Teilen (E-Mail, Drive, Drucken …)", "Auf dem Gerät speichern …")) { _, which ->
@@ -158,13 +170,13 @@ class ResultActivity : AppCompatActivity() {
                     try {
                         Share.clear(this)
                         val f = Share.file(this, name)
-                        f.outputStream().use { writer(it) }
+                        f.outputStream().use { writer(kind)(it) }
                         Share.send(this, f, mime, subject)
                     } catch (e: Exception) {
                         toast("Erstellen fehlgeschlagen: ${e.message}")
                     }
                 } else {
-                    pending = writer
+                    pendingKind = kind
                     if (mime == "application/pdf") savePdf.launch(name) else saveCsv.launch(name)
                 }
             }
@@ -172,11 +184,11 @@ class ResultActivity : AppCompatActivity() {
     }
 
     private fun writePending(uri: Uri?) {
-        val w = pending ?: return
-        pending = null
+        val kind = pendingKind ?: return
+        pendingKind = null
         if (uri == null) return
         try {
-            contentResolver.openOutputStream(uri)?.use { w(it) }
+            contentResolver.openOutputStream(uri, "wt")?.use { writer(kind)(it) }
             toast("Gespeichert")
         } catch (e: Exception) {
             toast("Speichern fehlgeschlagen: ${e.message}")

@@ -274,11 +274,13 @@ object Documents {
         val s = inv.summary()
         if (pdf.y + 40f > pdf.h - 40f) { pdf.newPage(); pdf.y = 40f }
         pdf.y += 22f
-        c().drawText(
-            "Artikel: ${s.articles} · stimmt: ${s.ok} · Differenz: ${s.diff} · geschätzt: ${s.estimated} · nicht gezählt: ${s.notCounted}" +
-                " · Mehrbestand: ${fmt(s.plus)} · Fehlbestand: ${fmt(s.minus)}",
-            m, pdf.y, paint(9f, bold = true),
-        )
+        val sumPaint = paint(9f, bold = true)
+        val sumText = "Artikel: ${s.articles} · stimmt: ${s.ok} · Differenz: ${s.diff} · geschätzt: ${s.estimated} · nicht gezählt: ${s.notCounted}" +
+            " · Mehrbestand: ${fmt(s.plus)} · Fehlbestand: ${fmt(s.minus)}"
+        wrap(sumText, sumPaint, right - m).forEachIndexed { i, l ->
+            if (i > 0) pdf.y += 12f
+            c().drawText(l, m, pdf.y, sumPaint)
+        }
         val notes = rows.mapNotNull { a -> inv.notes[a.sku]?.takeIf { it.isNotBlank() }?.let { "${a.name}: $it" } }
         if (notes.isNotEmpty()) {
             pdf.y += 16f

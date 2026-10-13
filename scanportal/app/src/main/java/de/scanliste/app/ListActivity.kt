@@ -50,6 +50,9 @@ class ListActivity : AppCompatActivity() {
     private lateinit var tones: Tones
     private var receiverRegistered = false
 
+    /** Liste wurde gespeichert, die Kurzinfo für die Übersicht aber noch nicht. */
+    private var infoDirty = false
+
     private val scanReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val data = intent.getStringExtra(DataWedge.EXTRA_DATA) ?: return
@@ -112,6 +115,7 @@ class ListActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (infoDirty) { ListStore.saveInfo(this, list); infoDirty = false }
         if (receiverRegistered) {
             unregisterReceiver(scanReceiver)
             receiverRegistered = false
@@ -167,7 +171,8 @@ class ListActivity : AppCompatActivity() {
 
     /** Speichert die Liste. Bei einem Fehler (z. B. Speicher voll) Meldung statt Absturz. */
     private fun persist(): Boolean = try {
-        ListStore.save(this, list)
+        ListStore.save(this, list, withInfo = false)
+        infoDirty = true
         true
     } catch (e: Exception) {
         showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", error = true)
@@ -228,7 +233,7 @@ class ListActivity : AppCompatActivity() {
 
     private fun exportTo(uri: Uri) {
         try {
-            contentResolver.openOutputStream(uri)?.use { Csv.write(it, list) }
+            contentResolver.openOutputStream(uri, "wt")?.use { Csv.write(it, list) }
             Toast.makeText(this, "CSV gespeichert", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Speichern fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()

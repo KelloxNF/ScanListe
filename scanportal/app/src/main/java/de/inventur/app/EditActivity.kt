@@ -226,11 +226,6 @@ class EditActivity : AppCompatActivity() {
             created = System.currentTimeMillis(), updated = System.currentTimeMillis(),
         )
         val oldName = inv?.customer?.name
-        if (oldName != null && oldName.trim().lowercase() != name.lowercase()) {
-            // Barcode-Zuordnungen und eigene Bezeichnungen zum neuen Kundennamen mitnehmen
-            BarcodeStore.renameCustomer(this, oldName, name)
-            NameStore.renameCustomer(this, oldName, name)
-        }
         target.customer = Customer(name, street.text.toString().trim(), city.text.toString().trim())
         target.stichtag = stichtagIso
         target.letterDate = letterIso
@@ -246,6 +241,11 @@ class EditActivity : AppCompatActivity() {
         } catch (e: Exception) {
             toast("Nicht gespeichert – ist der Gerätespeicher voll?")
             return
+        }
+        // Erst nach erfolgreichem Speichern: Barcode-Zuordnungen und eigene Bezeichnungen zum neuen Kundennamen mitnehmen
+        if (oldName != null && oldName.trim().lowercase() != name.lowercase()) {
+            val moved = BarcodeStore.renameCustomer(this, oldName, name) and NameStore.renameCustomer(this, oldName, name)
+            if (!moved) toast("Barcode-Zuordnungen/Bezeichnungen konnten nicht übernommen werden – Speicher voll?")
         }
         if (inv == null) {
             startActivity(Intent(this, CountActivity::class.java).putExtra(CountActivity.EXTRA_ID, target.id))

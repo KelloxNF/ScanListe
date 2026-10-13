@@ -248,7 +248,7 @@ class CountActivity : AppCompatActivity() {
             4 -> AlertDialog.Builder(this)
                 .setTitle("Barcode-Zuordnungen löschen?")
                 .setMessage("${BarcodeStore.count(this, customer)} gespeicherte Zuordnungen für $customer. Unbekannte Barcodes werden danach wieder abgefragt.")
-                .setPositiveButton("Löschen") { _, _ -> BarcodeStore.clear(this, customer) }
+                .setPositiveButton("Löschen") { _, _ -> if (!BarcodeStore.clear(this, customer)) saveFailed() }
                 .setNegativeButton("Abbrechen", null)
                 .show()
             else -> return super.onOptionsItemSelected(item)

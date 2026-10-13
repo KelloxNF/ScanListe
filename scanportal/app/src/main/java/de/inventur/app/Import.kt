@@ -248,7 +248,10 @@ object Xlsx {
                     "b" -> if (raw == "1") "WAHR" else "FALSCH"
                     "e" -> ""
                     else -> raw.toDoubleOrNull()?.let { d ->
-                        if (d == Math.floor(d) && !d.isInfinite() && Math.abs(d) < 1e15) d.toLong().toString() else raw
+                        // Ganze Zahlen ohne „.0“; Kommazahlen mit deutschem Komma, damit z. B. 1.234 (eins Komma …)
+                        // später nicht als Tausenderpunkt (1234) gelesen wird
+                        if (d == Math.floor(d) && !d.isInfinite() && Math.abs(d) < 1e15) d.toLong().toString()
+                        else if (!raw.contains('E') && !raw.contains('e')) raw.replace('.', ',') else raw
                     } ?: raw
                 }
                 cells[col] = text

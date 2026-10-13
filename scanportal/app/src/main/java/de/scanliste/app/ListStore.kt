@@ -51,9 +51,18 @@ object ListStore {
         return runCatching { fromJson(JSONObject(f.readText())) }.getOrNull()
     }
 
-    /** Wirft eine Exception, wenn nicht gespeichert werden konnte (z. B. Speicher voll). */
-    fun save(ctx: Context, list: ScanList) {
+    /**
+     * Wirft eine Exception, wenn nicht gespeichert werden konnte (z. B. Speicher voll).
+     * Beim Scannen ohne Kurzinfo ([withInfo] = false) – die wird dann einmal beim Verlassen
+     * der Liste geschrieben ([saveInfo]); das spart je Scan einen Schreibvorgang.
+     */
+    fun save(ctx: Context, list: ScanList, withInfo: Boolean = true) {
         writeAtomic(file(ctx, list.id), toJson(list).toString())
+        if (withInfo) saveInfo(ctx, list)
+    }
+
+    /** Kurzinfo für die Übersicht aktualisieren. Fehlt sie oder ist sie veraltet, wird sie beim Laden neu gebaut. */
+    fun saveInfo(ctx: Context, list: ScanList) {
         runCatching { writeMeta(ctx, list) }
     }
 
