@@ -288,6 +288,7 @@ class CountActivity : AppCompatActivity() {
 
     private fun updateChips() {
         for ((k, b) in chipViews) {
+            b.text = k?.let { label(it) } ?: "Alle"
             val on = k == chipFilter
             b.background = rounded(if (on) Colors.brand else Colors.cardBg, 16f, if (on) Colors.brand else Colors.line)
             b.setTextColor(if (on) Color.WHITE else Colors.appFg)
@@ -300,6 +301,9 @@ class CountActivity : AppCompatActivity() {
         if (inv.blind) return StateKey.OK
         return if (ist == a.soll) StateKey.OK else StateKey.BAD
     }
+
+    /** Bei Blindzählung bedeutet grün nur „gezählt“ – nicht „stimmt“ (der Soll ist ja unbekannt). */
+    private fun label(k: StateKey) = if (inv.blind && k == StateKey.OK) "Gezählt" else k.label
 
     private fun fill(k: StateKey) = when (k) {
         StateKey.OPEN -> Colors.openBg; StateKey.OK -> Colors.okFill; StateKey.BAD -> Colors.badFill; StateKey.EST -> Colors.estFill
@@ -325,7 +329,13 @@ class CountActivity : AppCompatActivity() {
             (if (inv.blind) " · Blindzählung" else "") + (if (inv.closed) " · abgeschlossen" else "")
     }
 
-    private fun toastShort(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private var lastToast: Toast? = null
+
+    /** Immer nur ein Hinweis gleichzeitig – sonst stauen sich bei schnellem Scannen dutzende Meldungen. */
+    private fun toastShort(msg: String) {
+        lastToast?.cancel()
+        lastToast = Toast.makeText(this, msg, Toast.LENGTH_SHORT).also { it.show() }
+    }
 
     // ================================================================ Artikel-Bildschirm
 
@@ -474,7 +484,7 @@ class CountActivity : AppCompatActivity() {
             append(a.soll.toString())
             setSpan(android.text.style.StyleSpan(Typeface.BOLD), s, length, 0)
         }
-        dState.text = st.label
+        dState.text = label(st)
         countCard.background = rounded(fill(st), 16f, edge(st), 3)
         val zl = zones.mapNotNull { z -> inv.zoneQty(a.sku, z)?.let { "$z: $it" } }
         dZones.text = if (zl.isEmpty()) "noch nicht gezählt" else zl.joinToString("   ") + if (a.sku in inv.estimated) "   (geschätzt)" else ""
@@ -549,7 +559,20 @@ class CountActivity : AppCompatActivity() {
         if (code.isEmpty()) return
         if (sheet?.isShowing == true) { tones.error(); toastShort("Bitte zuerst das offene Fenster schließen."); return }
         val a = cur
-        if (a == null) { tones.error(); toastShort("Erst einen Artikel antippen, dann scannen."); return }
+        if (a == null) {
+            tones.error()
+            val known = inv.findBySku(code)
+                ?: BarcodeStore.lookup(this, inv.customer.name, code).mapNotNull { inv.article(it) }.singleOrNull()
+            toastShort(
+                when {
+                    known == null -> "Erst einen Artikel antippen, dann scannen."
+                    !showAll && known !in inv.listArticles() ->
+                        "„${known.name}“ steht nicht in der Liste (Bestand 0) – ⋮ → „Artikel ohne Bestand zeigen“, dann antippen."
+                    else -> "Erst „${known.name}“ antippen, dann scannen."
+                },
+            )
+            return
+        }
         val mapped = BarcodeStore.lookup(this, inv.customer.name, code)
         if (inv.findBySku(code)?.sku == a.sku || a.sku in mapped) { countArticle(a); return }
         val other = inv.findBySku(code) ?: mapped.firstNotNullOfOrNull { inv.article(it) }
@@ -854,7 +877,7 @@ class CountActivity : AppCompatActivity() {
             h.label.setTextColor(Colors.appFg)
             h.card.background = rounded(fill(st), 12f)
             h.strip.setBackgroundColor(edge(st))
-            h.card.contentDescription = "${a.name}, ${st.label}"
+            h.card.contentDescription = "${a.name}, ${label(st)}"
             h.card.setOnClickListener { openArticle(a) }
         }
     }
