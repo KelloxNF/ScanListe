@@ -148,7 +148,7 @@ class CountActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // Nach Rückkehr aus Kopfdaten/Ergebnis neu laden (nicht, solange ein Artikel offen ist)
-        if (cur == null) InventoryStore.load(this, inv.id)?.let { inv = it; updateTitle(); renderList() }
+        if (cur == null) InventoryStore.load(this, inv.id)?.let { inv = it; updateTitle(); updateChips(); renderList() }
         ContextCompat.registerReceiver(this, scanReceiver, IntentFilter(DataWedge.SCAN_ACTION), ContextCompat.RECEIVER_EXPORTED)
         receiverRegistered = true
     }
@@ -498,6 +498,10 @@ class CountActivity : AppCompatActivity() {
     private fun openArticle(a: Article) {
         if (cur != null || sheet?.isShowing == true) return
         cur = inv.article(a.sku) ?: a
+        // Tastatur der Suche schließen, sonst verdeckt sie den Artikel-Bildschirm
+        search.clearFocus()
+        getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            ?.hideSoftInputFromWindow(search.windowToken, 0)
         fixedBox.isChecked = fixedOn
         if (fixedQty.text.toString() != fixedN.toString() && fixedN > 0) fixedQty.setText(fixedN.toString())
         renderZones(); renderFixed(); renderDetail()
@@ -682,6 +686,7 @@ class CountActivity : AppCompatActivity() {
             if (existing.isEmpty()) Colors.accent else Colors.badEdge,
         ) {
             for (z in zones) inv.setZone(a.sku, z, if (z == zone) a.soll else null)
+            inv.estimated.remove(a.sku)   // „Bestand stimmt“ ist eine genaue Zählung, keine Schätzung
             undoStack.removeAll { it.sku == a.sku }
             inv.closed = false
             if (persist()) say("✓ gespeichert – gesamt ${a.soll}", Colors.barOk)
