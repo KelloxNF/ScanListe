@@ -630,7 +630,7 @@ class CountActivity : AppCompatActivity() {
                 else -> add(a, v)
             }
         }
-        d = openSheet(a.name, "$zone · bisher hier: ${before ?: "–"} · gesamt: ${inv.counted(a.sku) ?: "–"}", box, "OK", ok)
+        d = openSheet(a.name, "$zone · bisher hier: ${before ?: "–"} · gesamt: ${inv.counted(a.sku) ?: "–"}", box, "OK", onOk = ok)
         qty.imeOptions = EditorInfo.IME_ACTION_DONE
         qty.setOnEditorActionListener { _, _, event ->
             if ((event == null || event.action == KeyEvent.ACTION_DOWN) && d.isShowing && ok()) d.dismiss()
