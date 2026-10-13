@@ -98,43 +98,49 @@ class SmokeTest {
         ActivityScenario.launch(EditActivity::class.java).use { shot("2_neue_inventur") }
 
         val countIntent = Intent(ctx, CountActivity::class.java).putExtra(CountActivity.EXTRA_ID, inv.id)
+        fun scan(code: String) {
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, code))
+            instr.waitForIdleSync(); Thread.sleep(400)
+        }
+        fun open(act: CountActivity, sku: String) {
+            val m = CountActivity::class.java.getDeclaredMethod("openArticle", Article::class.java)
+            m.isAccessible = true
+            m.invoke(act, InventoryStore.load(ctx, inv.id)!!.article(sku))
+        }
+        fun setField(act: CountActivity, name: String, value: Any) {
+            val f = CountActivity::class.java.getDeclaredField(name); f.isAccessible = true; f.set(act, value)
+        }
         ActivityScenario.launch<CountActivity>(countIntent).use {
             shot("3_zaehlen")
-            // Scan simulieren (wie DataWedge): Menge-Dialog erscheint
-            ctx.sendBroadcast(
-                Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "TST4043972269040Ref"),
-            )
-            shot("4_scan_menge")
+            // Scan ohne geöffneten Artikel: nichts zählen, nur Hinweis
+            scan("TST20002974")
+            shot("4_scan_ohne_artikel")
+            assertEquals(null, InventoryStore.load(ctx, inv.id)!!.counted("TST20002974"))
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
-            // Bearbeiten-Fenster (sonst per langem Tippen) mit Checkbox „Ist = Sollbestand“
+            // Feste Menge 20 je Scan, Artikel öffnen, zwei Scans, ein falscher Artikel
+            sc.onActivity { act -> setField(act, "fixedOn", true); setField(act, "fixedN", 20); open(act, "TST20003013") }
+            scan("TST20003013"); scan("TST20003013")
+            scan("TST20003096")   // falscher Artikel – darf nicht zählen
+            shot("9_artikel_fenster")
+            val now = InventoryStore.load(ctx, inv.id)!!
+            assertEquals(66, now.counted("TST20003013"))
+            assertEquals(433, now.counted("TST20003096"))
+        }
+        ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
+            // Korrigieren-Fenster mit „Bestand stimmt“
             sc.onActivity { act ->
+                open(act, "TST20002974")
                 val m = CountActivity::class.java.getDeclaredMethod("editArticle", Article::class.java)
                 m.isAccessible = true
                 m.invoke(act, inv.article("TST20002974"))
             }
-            shot("8_artikel_bearbeiten")
+            shot("8_korrigieren")
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
-            // Feste Menge 20 je Scan + Filter „5590“, dann zwei Scans
-            sc.onActivity { act ->
-                fun <T> f(n: String): T { val x = CountActivity::class.java.getDeclaredField(n); x.isAccessible = true; @Suppress("UNCHECKED_CAST") return x.get(act) as T }
-                f<android.widget.EditText>("fixedQty").setText("20")
-                f<android.widget.CheckBox>("fixedBox").isChecked = true
-                f<android.widget.EditText>("search").setText("5590")
-            }
-            repeat(2) {
-                ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "TST20003013"))
-                instr.waitForIdleSync(); Thread.sleep(400)
-            }
-            shot("9_feste_menge_filter")
-            assertEquals(66, InventoryStore.load(ctx, inv.id)!!.counted("TST20003013"))
-        }
-        ActivityScenario.launch<CountActivity>(countIntent).use {
-            // Unbekannter Barcode → Zuordnen-Dialog
-            ctx.sendBroadcast(
-                Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "4006381333931"),
-            )
+            // Unbekannter Barcode bei geöffnetem Artikel → Zuordnen-Frage
+            sc.onActivity { act -> open(act, "TST20002974") }
+            scan("4006381333931")
             shot("5_barcode_zuordnen")
         }
         val resIntent = Intent(ctx, ResultActivity::class.java).putExtra(CountActivity.EXTRA_ID, inv.id)
@@ -146,12 +152,10 @@ class SmokeTest {
         ActivityScenario.launch(PortalActivity::class.java).use { shot("n0_portal") }
         ActivityScenario.launch(MainActivity::class.java).use { shot("n1_uebersicht") }
         ActivityScenario.launch(EditActivity::class.java).use { shot("n2_neue_inventur") }
-        ActivityScenario.launch<CountActivity>(countIntent).use {
+        ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
             shot("n3_zaehlen")
-            ctx.sendBroadcast(
-                Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "TST20002974"),
-            )
-            shot("n4_scan_menge")
+            sc.onActivity { act -> open(act, "TST20003096") }
+            shot("n4_artikel_fenster")
         }
         ActivityScenario.launch<ResultActivity>(resIntent).use { shot("n6_ergebnis") }
         instr.runOnMainSync { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) }

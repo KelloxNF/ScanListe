@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -14,24 +16,30 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Zählen: Bereich wählen, Artikel scannen oder antippen, Menge eintragen. */
+/**
+ * Zählen: Artikel als Kacheln (nur Bezeichnung, Farbe = Status). Antippen öffnet das
+ * Artikel-Fenster mit allen Werkzeugen. Gescannt wird nur bei geöffnetem Artikel.
+ */
 class CountActivity : AppCompatActivity() {
 
     companion object {
@@ -42,25 +50,33 @@ class CountActivity : AppCompatActivity() {
     private lateinit var zones: List<String>
     private var zone = ""
     private var showAll = false
+    private var onlyOpen = false     // Filter: nur nicht gezählte
+    private var onlyDiff = false     // Filter: nur Differenzen
     private var filter = ""
     private var visible: List<Article> = emptyList()
 
+    // Feste Menge je Scan – gilt für die ganze Zähl-Sitzung, über Artikel hinweg
+    private var fixedOn = false
+    private var fixedN = 1
+
     private lateinit var statusText: TextView
     private lateinit var feedbackText: TextView
-    private lateinit var fixedBox: CheckBox
-    private lateinit var fixedQty: EditText
-    private lateinit var fixedRow: LinearLayout
-    private lateinit var filterInfo: TextView
     private lateinit var search: EditText
+    private lateinit var filterInfo: TextView
     private lateinit var recycler: RecyclerView
-    private lateinit var zoneButtons: List<Button>
     private val adapter = Adapter()
     private lateinit var feedback: Feedback
+
+    /** Zweites Fenster über dem Artikel-Fenster (Korrigieren, Löschen, Zuordnen …). */
     private var dialog: AlertDialog? = null
+
+    /** Das geöffnete Artikel-Fenster. */
+    private var detail: Detail? = null
 
     /** Was in dieser Sitzung per Scan/Menge hinzugefügt wurde – nur das macht „Rückgängig“ wieder weg. */
     private data class Added(val sku: String, val zone: String, val qty: Int)
     private val undoStack = ArrayDeque<Added>()
+
     private var receiverRegistered = false
 
     private val scanReceiver = object : BroadcastReceiver() {
@@ -78,7 +94,7 @@ class CountActivity : AppCompatActivity() {
         inv = loaded
         // Auch Bereiche anzeigen, in denen schon gezählt wurde, die aber in den Einstellungen umbenannt sind
         zones = (Settings.zones(this) + inv.countedZones()).distinct()
-        zone = savedInstanceState?.getString("zone")?.takeIf { it in zones } ?: zones.first()
+        zone = zones.first()
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         title = inv.customer.name
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -88,44 +104,7 @@ class CountActivity : AppCompatActivity() {
         statusText = text(sizeSp = 14f, bold = true).apply { setPadding(dp(12), dp(8), dp(12), dp(4)) }
         root.addView(statusText)
 
-        // Bereichsauswahl
-        val zoneRow = hbox().apply { setPadding(dp(8), 0, dp(8), 0) }
-        zoneButtons = zones.map { z ->
-            button(z) { zone = z; updateZoneButtons(); showFeedback("$z gewählt", Colors.barIdle) }.apply {
-                textSize = 14f
-                maxLines = 1
-                setPadding(dp(2), paddingTop, dp(2), paddingBottom)
-            }.also {
-                zoneRow.addView(it, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            }
-        }
-        root.addView(zoneRow)
-
-        // Feste Menge je Scan (nur für diese Sitzung): z. B. 20 bei vollen Kartons, 1 für Einzelscans
-        fixedRow = hbox().apply { setPadding(dp(8), dp(2), dp(8), dp(2)) }
-        fixedBox = CheckBox(this).apply {
-            text = "Feste Menge je Scan:"
-            textSize = 16f
-            setOnCheckedChangeListener { _, c ->
-                if (c && fixedQty.text.isNullOrBlank()) fixedQty.setText("1")
-                updateFixedRow()
-            }
-        }
-        fixedQty = field("1", number = true).apply {
-            textSize = 20f
-            gravity = Gravity.CENTER
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-                override fun afterTextChanged(s: Editable?) { updateFixedRow() }
-            })
-        }
-        fixedRow.addView(fixedBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        fixedRow.addView(fixedQty, LinearLayout.LayoutParams(dp(110), ViewGroup.LayoutParams.WRAP_CONTENT))
-        fixedRow.addView(text(" Stk.", 16f))
-        root.addView(fixedRow)
-
-        feedbackText = text("Bereit – Artikel scannen oder antippen", 16f, color = Color.WHITE).apply {
+        feedbackText = text("Artikel antippen, dann scannen", 16f, color = Color.WHITE).apply {
             minHeight = dp(44)
             gravity = Gravity.CENTER_VERTICAL
             maxLines = 2
@@ -134,7 +113,7 @@ class CountActivity : AppCompatActivity() {
         }
         root.addView(feedbackText)
 
-        search = field("🔍 Filtern: Name oder Artikelnummer").apply {
+        search = field("🔍 Suchen: Name oder Artikelnummer").apply {
             imeOptions = EditorInfo.IME_ACTION_DONE
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -146,15 +125,13 @@ class CountActivity : AppCompatActivity() {
                     (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
                 if (enter) {
                     val v = text.toString().trim()
-                    if (v.isNotEmpty()) {
-                        if (visible.size == 1) countArticle(visible[0]) else onScan(v)
-                        setText("")
-                    }
+                    val hit = if (visible.size == 1) visible[0] else inv.findBySku(v)
+                    if (hit != null) openArticle(hit)
                 }
                 enter
             }
         }
-        val searchRow = hbox().apply { setPadding(dp(12), dp(4), dp(4), dp(0)) }
+        val searchRow = hbox().apply { setPadding(dp(12), dp(4), dp(4), 0) }
         searchRow.addView(search, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         searchRow.addView(button("✕") { search.setText("") }.apply { textSize = 18f }, LinearLayout.LayoutParams(dp(56), ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(searchRow)
@@ -162,26 +139,21 @@ class CountActivity : AppCompatActivity() {
         root.addView(filterInfo)
 
         recycler = RecyclerView(this).apply {
-            layoutManager = LinearLayoutManager(this@CountActivity)
+            layoutManager = GridLayoutManager(this@CountActivity, 2)
             adapter = this@CountActivity.adapter
+            setPadding(dp(6), dp(2), dp(6), dp(6))
+            clipToPadding = false
         }
         root.addView(recycler.lp(height = 0, weight = 1f))
         root.addView(button("Ergebnis & Dokumente  ›") { openResult() }.apply { minHeight = dp(56) }.lp())
         setContentView(root)
-
-        updateZoneButtons()
         refresh()
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putString("zone", zone)
     }
 
     override fun onResume() {
         super.onResume()
-        // Nach Rückkehr aus Kopfdaten/Ergebnis neu laden
-        InventoryStore.load(this, inv.id)?.let { inv = it; title = it.customer.name; refresh() }
+        // Nach Rückkehr aus Kopfdaten/Ergebnis neu laden (nicht, solange ein Artikel offen ist)
+        if (detail == null) InventoryStore.load(this, inv.id)?.let { inv = it; title = it.customer.name; refresh() }
         ContextCompat.registerReceiver(this, scanReceiver, IntentFilter(DataWedge.SCAN_ACTION), ContextCompat.RECEIVER_EXPORTED)
         receiverRegistered = true
     }
@@ -196,26 +168,36 @@ class CountActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    // ---------------------------------------------------------------- Anzeige
-
-    private fun updateZoneButtons() {
-        zoneButtons.forEachIndexed { i, b ->
-            val sel = zones[i] == zone
-            b.setBackgroundColor(if (sel) Colors.brand else Color.rgb(225, 229, 236))
-            b.setTextColor(if (sel) Color.WHITE else Color.BLACK)
-        }
-    }
+    // ---------------------------------------------------------------- Kacheln
 
     private fun refresh() {
-        val base = if (showAll) inv.articles else inv.listArticles()
+        var base = if (showAll) inv.articles.toList() else inv.listArticles()
+        if (onlyOpen) base = base.filter { inv.counted(it.sku) == null }
+        if (onlyDiff) base = base.filter { inv.status(it) == Status.DIFFERENZ || (it.sku in inv.estimated && inv.counted(it.sku) != it.soll) }
         val f = filter.lowercase()
         visible = if (f.isEmpty()) base else base.filter { it.name.lowercase().contains(f) || it.sku.lowercase().contains(f) }
         adapter.notifyDataSetChanged()
-        filterInfo.text = if (f.isEmpty()) "" else "Filter aktiv: ${visible.size} von ${base.size} Artikeln"
-        filterInfo.visibility = if (f.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        val active = buildList {
+            if (onlyOpen) add("nur nicht gezählte")
+            if (onlyDiff) add("nur Differenzen")
+            if (f.isNotEmpty()) add("Suche „$filter“")
+        }
+        filterInfo.text = if (active.isEmpty()) "" else "Filter: ${active.joinToString(", ")} – ${visible.size} Artikel"
+        filterInfo.visibility = if (active.isEmpty()) View.GONE else View.VISIBLE
         val s = inv.summary()
         statusText.text = "Stichtag ${Dates.display(inv.stichtag)} · ${s.articles - s.notCounted} von ${s.articles} Artikeln gezählt" +
             (if (inv.blind) " · Blindzählung" else "") + (if (inv.closed) " · abgeschlossen" else "")
+    }
+
+    private fun tileColor(a: Article): Int {
+        val ist = inv.counted(a.sku) ?: return Colors.tileNone
+        if (inv.blind) return Colors.tileBlind
+        return when (inv.status(a)) {
+            Status.STIMMT -> Colors.tileOk
+            Status.GESCHAETZT -> Colors.tileEst
+            Status.DIFFERENZ -> Colors.tileDiff
+            Status.NICHT_GEZAEHLT -> if (ist == 0) Colors.tileNone else Colors.tileNone
+        }
     }
 
     private fun showFeedback(msg: String, color: Int) {
@@ -225,153 +207,281 @@ class CountActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------------- Scannen
 
-    private fun onScan(value: String) {
-        if (value.isEmpty()) return
+    private fun onScan(code: String) {
+        if (code.isEmpty()) return
         if (dialog?.isShowing == true) {
             feedback.error()
-            showFeedback("Bitte zuerst das offene Fenster schließen", Colors.barError)
+            val msg = "Bitte zuerst das offene Fenster schließen"
+            detail?.say(msg, Colors.barError) ?: showFeedback(msg, Colors.barError)
             return
         }
-        inv.findBySku(value)?.let { countArticle(it); return }
-        val known = BarcodeStore.lookup(this, inv.customer.name, value).mapNotNull { inv.article(it) }
-        when {
-            known.size == 1 -> countArticle(known[0])
-            known.size > 1 -> chooseArticle(value, known)
-            else -> assignBarcode(value)
+        val d = detail
+        if (d == null) {
+            // Ohne geöffneten Artikel wird nichts gezählt – nur ein Hinweis
+            feedback.error()
+            val known = articleFor(code)
+            showFeedback(
+                if (known != null) "Nicht gezählt: „${known.name}“ – bitte zuerst den Artikel antippen"
+                else "Nicht gezählt – bitte zuerst einen Artikel antippen",
+                Colors.barWarn,
+            )
+            return
         }
+        d.onScan(code)
     }
 
-    /** Barcode gehört zu mehreren Artikeln (z. B. Neu- und Refware) → nachfragen. */
-    private fun chooseArticle(code: String, options: List<Article>) {
-        feedback.ok()
-        dialog = AlertDialog.Builder(this)
-            .setTitle("Welcher Artikel? ($code)")
-            .setItems(options.map { "${it.name}\n${it.sku}" }.toTypedArray()) { _, which ->
-                dialog = null
-                countArticle(options[which])
-            }
-            .setNegativeButton("Abbrechen", null)
-            .setOnDismissListener { if (dialog?.isShowing != true) dialog = null }
-            .show()
+    /** Artikel zu einem Barcode/einer Artikelnummer, falls eindeutig. */
+    private fun articleFor(code: String): Article? {
+        inv.findBySku(code)?.let { return it }
+        val list = BarcodeStore.lookup(this, inv.customer.name, code).mapNotNull { inv.article(it) }
+        return list.singleOrNull()
     }
 
-    /** Unbekannter Barcode → einmalig einem oder mehreren Artikeln zuordnen. */
-    private fun assignBarcode(code: String) {
-        feedback.error()
-        showFeedback("Unbekannter Barcode $code – bitte zuordnen. Gleiche EAN bei Neu- und Refware? Beide ankreuzen.", Colors.barWarn)
-        val all = inv.listArticles() + inv.articles.filter { it.soll == 0 && !inv.hasCount(it.sku) }
-        val checked = BooleanArray(all.size)
-        dialog = AlertDialog.Builder(this)
-            .setTitle("Barcode $code zuordnen")
-            .setMultiChoiceItems(all.map { "${it.name}  (${it.sku})" }.toTypedArray(), checked) { _, i, c -> checked[i] = c }
-            .setPositiveButton("Zuordnen") { _, _ ->
-                val chosen = all.filterIndexed { i, _ -> checked[i] }
-                dialog = null
-                if (chosen.isEmpty()) return@setPositiveButton
-                BarcodeStore.assign(this, inv.customer.name, code, chosen.map { it.sku })
-                if (chosen.size == 1) countArticle(chosen[0]) else chooseArticle(code, chosen)
-            }
-            .setNegativeButton("Abbrechen", null)
-            .setOnDismissListener { if (dialog?.isShowing != true) dialog = null }
-            .show()
-    }
-
-    /** Ein Artikel wurde erkannt: entweder +1 oder Menge abfragen. */
-    private fun countArticle(a: Article) {
-        val fixed = fixedAmount()
-        if (fixed != null) {
-            add(a, fixed)
-        } else {
-            feedback.ok()
-            askQuantity(a)
-        }
-    }
-
-    /** Feste Menge je Scan, falls eingeschaltet und gültig, sonst null (= Menge abfragen). */
-    private fun fixedAmount(): Int? =
-        if (fixedBox.isChecked) fixedQty.text.toString().trim().toIntOrNull()?.takeIf { it > 0 } else null
-
-    private fun updateFixedRow() {
-        val on = fixedAmount() != null
-        fixedRow.setBackgroundColor(if (on) Colors.estBg else Color.TRANSPARENT)
-        fixedBox.setTypeface(null, if (on) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-    }
-
-    private fun askQuantity(a: Article) {
-        val box = vbox(20)
-        val before = inv.zoneQty(a.sku, zone)
-        box.addView(text(a.sku, 13f, color = Colors.grey))
-        box.addView(text("$zone · bisher hier: ${before ?: "–"} · gesamt: ${inv.counted(a.sku) ?: "–"}", 14f))
-        val qty = field("Menge", number = true, signed = true).apply { textSize = 26f }
-        box.addView(qty)
-        val d = AlertDialog.Builder(this)
-            .setTitle(a.name)
-            .setView(box)
-            .setPositiveButton("OK", null)
-            .setNeutralButton("Ändern") { _, _ -> dialog = null; editArticle(a) }
-            .setNegativeButton("Abbrechen", null)
-            .create()
-        d.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-        d.setOnShowListener {
-            qty.requestFocus()
-            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val n = qty.text.toString().trim().toIntOrNull()
-                if (n == null || n == 0) { qty.error = "Menge eingeben"; return@setOnClickListener }
-                if ((inv.zoneQty(a.sku, zone) ?: 0) + n < 0) {
-                    qty.error = "Dann wäre die Menge in $zone negativ"
-                    return@setOnClickListener
-                }
-                d.dismiss()
-                add(a, n)
-            }
-        }
-        // Nur einmal auslösen: Eine Hardware-Enter-Taste meldet sich beim Drücken UND beim Loslassen.
-        qty.setOnEditorActionListener { _, _, event ->
-            if ((event == null || event.action == KeyEvent.ACTION_DOWN) && d.isShowing) {
-                d.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
-            }
-            true
-        }
-        d.setOnDismissListener { if (dialog === d) dialog = null }
-        dialog = d
-        d.show()
-    }
-
-    private fun add(a: Article, n: Int) {
+    private fun add(a: Article, n: Int): Boolean {
         val now = System.currentTimeMillis()
         val hhmm = SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(now))
         val prevFrom = inv.timeFrom; val prevTo = inv.timeTo; val prevClosed = inv.closed
-        val entry = CountEntry(a.sku, zone, n, now)
-        inv.addCount(entry)
+        inv.addCount(CountEntry(a.sku, zone, n, now))
         if (inv.timeFrom.isBlank()) inv.timeFrom = hhmm
         inv.timeTo = hhmm
         inv.closed = false
         if (!persist()) {
             inv.retract(a.sku, zone, n)
             inv.timeFrom = prevFrom; inv.timeTo = prevTo; inv.closed = prevClosed
-            return
+            return false
         }
         undoStack.addLast(Added(a.sku, zone, n))
         if (undoStack.size > 500) undoStack.removeFirst()
         feedback.ok()
-        val total = inv.counted(a.sku) ?: 0
-        val sign = if (n > 0) "+$n" else "$n"
-        showFeedback("✓ ${a.name}  $sign in $zone  →  gesamt $total", Colors.barOk)
         refresh()
-        visible.indexOf(a).takeIf { it >= 0 }?.let { recycler.scrollToPosition(it) }
+        return true
     }
 
     private fun persist(): Boolean = try {
         InventoryStore.save(this, inv); true
     } catch (e: Exception) {
         feedback.error()
-        showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", Colors.barError)
+        val msg = "✗ Nicht gespeichert – ist der Gerätespeicher voll?"
+        detail?.say(msg, Colors.barError) ?: showFeedback(msg, Colors.barError)
         false
     }
 
-    // ---------------------------------------------------------------- Bearbeiten
+    // ---------------------------------------------------------------- Artikel-Fenster
+
+    private fun openArticle(a: Article) {
+        if (detail != null || dialog?.isShowing == true) return
+        detail = Detail(a).also { it.show() }
+    }
+
+    /** Fenster eines geöffneten Artikels mit allen Werkzeugen. Scans zählen nur hier. */
+    private inner class Detail(private var a: Article) {
+        private val ctx = this@CountActivity
+        private val box = ctx.vbox(16)
+        private val skuText = ctx.text(sizeSp = 14f, color = Colors.grey)
+        private val sollText = ctx.text(sizeSp = 20f, bold = true)
+        private val totalText = ctx.text(sizeSp = 34f, bold = true).apply { gravity = Gravity.END }
+        private val zonesText = ctx.text(sizeSp = 16f)
+        private val zoneButtons: List<Button>
+        private val fixedBox = CheckBox(ctx)
+        private val fixedQty = ctx.field("1", number = true)
+        private val fixedRow = ctx.hbox()
+        private val qty = ctx.field("Menge", number = true, signed = true)
+        private val bar = ctx.text("Jetzt scannen oder Menge eingeben", 16f, color = Color.WHITE)
+        private val dlg: AlertDialog
+
+        init {
+            box.addView(skuText)
+            val top = ctx.hbox()
+            top.addView(sollText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            top.addView(totalText)
+            box.addView(top)
+            box.addView(zonesText)
+
+            // Bereich
+            val zr = ctx.hbox().apply { setPadding(0, dp(10), 0, dp(4)) }
+            zoneButtons = zones.map { z ->
+                ctx.button(z) { zone = z; updateZoneButtons(); say("$z gewählt", Colors.barIdle) }.apply {
+                    textSize = 14f; maxLines = 1
+                    setPadding(dp(2), paddingTop, dp(2), paddingBottom)
+                }.also { zr.addView(it, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)) }
+            }
+            box.addView(zr)
+
+            // Feste Menge je Scan
+            fixedBox.text = "Feste Menge je Scan:"
+            fixedBox.textSize = 16f
+            fixedBox.isChecked = fixedOn
+            fixedQty.setText(fixedN.toString())
+            fixedQty.textSize = 20f
+            fixedQty.gravity = Gravity.CENTER
+            fixedBox.setOnCheckedChangeListener { _, c -> fixedOn = c; updateFixedRow() }
+            fixedQty.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    s?.toString()?.trim()?.toIntOrNull()?.takeIf { it > 0 }?.let { fixedN = it }
+                    updateFixedRow()
+                }
+            })
+            fixedRow.setPadding(dp(4), dp(2), dp(4), dp(2))
+            fixedRow.addView(fixedBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            fixedRow.addView(fixedQty, LinearLayout.LayoutParams(dp(96), ViewGroup.LayoutParams.WRAP_CONTENT))
+            fixedRow.addView(ctx.text(" Stk.", 16f))
+            box.addView(fixedRow)
+
+            // Menge von Hand
+            val mr = ctx.hbox()
+            qty.textSize = 22f
+            qty.imeOptions = EditorInfo.IME_ACTION_DONE
+            qty.setOnEditorActionListener { _, _, event ->
+                if (event == null || event.action == KeyEvent.ACTION_DOWN) addTyped()
+                true
+            }
+            mr.addView(qty, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            mr.addView(ctx.button("Hinzufügen") { addTyped() })
+            box.addView(mr)
+
+            // Rückmeldung
+            bar.minHeight = dp(44)
+            bar.gravity = Gravity.CENTER_VERTICAL
+            bar.maxLines = 3
+            bar.setPadding(dp(12), dp(4), dp(12), dp(4))
+            bar.setBackgroundColor(Colors.barIdle)
+            box.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+
+            // Werkzeuge
+            val tr = ctx.hbox().apply { setPadding(0, dp(8), 0, 0) }
+            tr.addView(ctx.button("↶ Rückgängig") { undo() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            tr.addView(ctx.button("Korrigieren …") { editArticle(a) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            box.addView(tr)
+
+            dlg = AlertDialog.Builder(ctx)
+                .setTitle(a.name)
+                .setView(ScrollView(ctx).apply { addView(box) })
+                .setPositiveButton("Fertig", null)
+                .create()
+            dlg.setOnDismissListener {
+                if (detail === this) detail = null
+                showFeedback("Artikel antippen, dann scannen", Colors.barIdle)
+                refresh()
+            }
+            render()
+            updateZoneButtons()
+            updateFixedRow()
+        }
+
+        fun show() {
+            dlg.show()
+            dlg.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        fun dismiss() = dlg.dismiss()
+
+        fun say(msg: String, color: Int) {
+            bar.text = msg
+            bar.setBackgroundColor(color)
+        }
+
+        /** Artikel neu einlesen (nach Umbenennen/Korrektur) und Anzeige aktualisieren. */
+        fun render() {
+            inv.article(a.sku)?.let { a = it }
+            dlg.setTitle(a.name)
+            skuText.text = "Artikelnummer ${a.sku}"
+            sollText.text = if (inv.blind) "" else "Soll ${a.soll}"
+            val ist = inv.counted(a.sku)
+            totalText.text = ist?.toString() ?: "–"
+            totalText.setTextColor(
+                when {
+                    ist == null -> Colors.grey
+                    inv.blind -> Colors.ok
+                    else -> Colors.status(inv.status(a))
+                },
+            )
+            zonesText.text = zones.joinToString("   ") { z -> "$z: ${inv.zoneQty(a.sku, z) ?: "–"}" } +
+                (if (a.sku in inv.estimated) "\n(geschätzt)" else "") +
+                (inv.notes[a.sku]?.takeIf { it.isNotBlank() }?.let { "\n📝 $it" } ?: "")
+        }
+
+        private fun updateZoneButtons() {
+            zoneButtons.forEachIndexed { i, b ->
+                val sel = zones[i] == zone
+                b.setBackgroundColor(if (sel) Colors.brand else Color.rgb(225, 229, 236))
+                b.setTextColor(if (sel) Color.WHITE else Color.BLACK)
+            }
+        }
+
+        private fun updateFixedRow() {
+            val on = fixedAmount() != null
+            fixedRow.setBackgroundColor(if (on) Colors.estBg else Color.TRANSPARENT)
+            fixedBox.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
+        }
+
+        private fun addTyped() {
+            val n = qty.text.toString().trim().toIntOrNull()
+            if (n == null || n == 0) { qty.error = "Menge eingeben"; return }
+            if ((inv.zoneQty(a.sku, zone) ?: 0) + n < 0) { qty.error = "Dann wäre die Menge in $zone negativ"; return }
+            if (counted(n)) qty.setText("")
+        }
+
+        private fun counted(n: Int): Boolean {
+            if (!add(a, n)) return false
+            val sign = if (n > 0) "+$n" else "$n"
+            say("✓ $sign in $zone  →  gesamt ${inv.counted(a.sku) ?: 0}", Colors.barOk)
+            render()
+            return true
+        }
+
+        fun onScan(code: String) {
+            val isThis = inv.findBySku(code)?.sku == a.sku ||
+                a.sku in BarcodeStore.lookup(ctx, inv.customer.name, code)
+            if (isThis) {
+                val f = fixedAmount()
+                if (f != null) {
+                    counted(f)
+                } else {
+                    feedback.ok()
+                    say("Artikel erkannt – Menge eingeben und „Hinzufügen“", Colors.barIdle)
+                    qty.requestFocus()
+                    getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.showSoftInput(qty, 0)
+                }
+                return
+            }
+            val other = articleFor(code)
+            val anyKnown = inv.findBySku(code) != null || BarcodeStore.lookup(ctx, inv.customer.name, code).isNotEmpty()
+            feedback.error()
+            if (anyKnown) {
+                say("✗ Falscher Artikel" + (other?.let { ": „${it.name}“" } ?: "") + " – nicht gezählt", Colors.barError)
+            } else {
+                assignBarcode(code)
+            }
+        }
+
+        /** Unbekannter Barcode bei geöffnetem Artikel: diesem Artikel zuordnen? */
+        private fun assignBarcode(code: String) {
+            say("Unbekannter Barcode $code", Colors.barWarn)
+            dialog = AlertDialog.Builder(ctx)
+                .setTitle("Barcode zuordnen?")
+                .setMessage("$code ist noch keinem Artikel zugeordnet.\n\nGehört er zu „${a.name}“?\n\nHaben Neu- und Refware dieselbe EAN, kann derselbe Barcode beiden Artikeln zugeordnet werden.")
+                .setPositiveButton("Ja, zuordnen") { _, _ ->
+                    dialog = null
+                    val list = (BarcodeStore.lookup(ctx, inv.customer.name, code) + a.sku).distinct()
+                    BarcodeStore.assign(ctx, inv.customer.name, code, list)
+                    say("✓ Barcode zugeordnet – jetzt wird er bei diesem Artikel gezählt", Colors.barOk)
+                    onScan(code)
+                }
+                .setNegativeButton("Nein", null)
+                .setOnDismissListener { if (dialog?.isShowing != true) dialog = null }
+                .show()
+        }
+    }
+
+    /** Feste Menge je Scan, falls eingeschaltet und gültig, sonst null (= Menge abfragen). */
+    private fun fixedAmount(): Int? = if (fixedOn && fixedN > 0) fixedN else null
+
+    // ---------------------------------------------------------------- Korrigieren / Löschen
 
     private fun editArticle(a: Article) {
+        if (dialog?.isShowing == true) return
         val box = vbox(20)
         box.addView(text("Artikelnummer ${a.sku}", 13f, color = Colors.grey))
         box.addView(text("Bezeichnung", 13f, bold = true))
@@ -381,7 +491,7 @@ class CountActivity : AppCompatActivity() {
         }
         box.addView(nameField)
         if (!inv.blind) box.addView(text("Soll: ${a.soll}", 14f).apply { setPadding(0, dp(8), 0, 0) })
-        val sollBox = CheckBox(this).apply { text = "Ist = Sollbestand (${a.soll} in „$zone“ eintragen)" }
+        val sollBox = CheckBox(this).apply { text = "Bestand stimmt (${a.soll} in „$zone“ eintragen)" }
         // Nur bei positivem Soll sinnvoll – ein negativer oder leerer Systembestand kann nicht „stimmen“
         if (!inv.blind && a.soll > 0) box.addView(sollBox)
         val fields = zones.map { z ->
@@ -392,7 +502,7 @@ class CountActivity : AppCompatActivity() {
             box.addView(row)
             z to f
         }
-        // Ist = Soll: Soll im aktuell gewählten Bereich eintragen, übrige Bereiche leeren;
+        // Bestand stimmt: Soll im aktuell gewählten Bereich eintragen, übrige Bereiche leeren;
         // beim Abhaken werden die vorherigen Werte wiederhergestellt.
         var previous: List<String> = emptyList()
         sollBox.setOnCheckedChangeListener { _, checked ->
@@ -413,8 +523,8 @@ class CountActivity : AppCompatActivity() {
         box.addView(text("Leeres Feld = in diesem Bereich nicht gezählt.", 12f, color = Colors.grey))
 
         val d = AlertDialog.Builder(this)
-            .setTitle(a.name)
-            .setView(android.widget.ScrollView(this).apply { addView(box) })
+            .setTitle("Korrigieren: ${a.name}")
+            .setView(ScrollView(this).apply { addView(box) })
             .setPositiveButton("Speichern") { _, _ ->
                 val newName = nameField.text.toString().trim()
                 if (newName.isNotEmpty() && newName != a.name) {
@@ -433,7 +543,8 @@ class CountActivity : AppCompatActivity() {
                 val n = note.text.toString().trim()
                 if (n.isEmpty()) inv.notes.remove(a.sku) else inv.notes[a.sku] = n
                 inv.closed = false
-                if (persist()) showFeedback("✓ ${inv.article(a.sku)?.name ?: a.name} gespeichert – gesamt ${inv.counted(a.sku) ?: "–"}", Colors.barOk)
+                if (persist()) detail?.say("✓ Gespeichert – gesamt ${inv.counted(a.sku) ?: "–"}", Colors.barOk)
+                detail?.render()
                 refresh()
             }
             .setNegativeButton("Abbrechen", null)
@@ -460,6 +571,7 @@ class CountActivity : AppCompatActivity() {
                 inv.removeArticle(a.sku)
                 undoStack.removeAll { it.sku == a.sku }
                 if (persist()) {
+                    detail?.dismiss()
                     showFeedback("🗑 ${a.name} gelöscht", Colors.barIdle)
                 } else {
                     inv = InventoryStore.fromJson(org.json.JSONObject(backup))
@@ -472,21 +584,24 @@ class CountActivity : AppCompatActivity() {
     }
 
     private fun undo() {
-        // Nur Scans/Mengen dieser Sitzung zurücknehmen – Korrekturen aus „Ändern“ bleiben unangetastet.
+        // Nur Scans/Mengen dieser Sitzung zurücknehmen – Korrekturen bleiben unangetastet.
         while (true) {
             val last = undoStack.removeLastOrNull()
             if (last == null) {
-                toast("Nichts mehr rückgängig zu machen. Korrekturen bitte über „Ändern“ (lange tippen).")
+                val msg = "Nichts mehr rückgängig zu machen – Korrekturen über „Korrigieren“"
+                detail?.say(msg, Colors.barIdle) ?: toast(msg)
                 return
             }
-            if (!inv.retract(last.sku, last.zone, last.qty)) continue  // inzwischen per „Ändern“ geändert
+            if (!inv.retract(last.sku, last.zone, last.qty)) continue  // inzwischen korrigiert
+            val name = inv.article(last.sku)?.name ?: last.sku
             if (persist()) {
-                val name = inv.article(last.sku)?.name ?: last.sku
-                showFeedback("↶ Rückgängig: $name ${last.qty} in ${last.zone}", Colors.barIdle)
+                val msg = "↶ Rückgängig: $name ${last.qty} in ${last.zone}"
+                detail?.say(msg, Colors.barIdle) ?: showFeedback(msg, Colors.barIdle)
             } else {
                 inv.addCount(CountEntry(last.sku, last.zone, last.qty, System.currentTimeMillis()))
                 undoStack.addLast(last)
             }
+            detail?.render()
             refresh()
             return
         }
@@ -499,8 +614,10 @@ class CountActivity : AppCompatActivity() {
     // ---------------------------------------------------------------- Menü
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, 1, 0, "Letzte Zählung rückgängig")
+        menu.add(0, 5, 0, "Filter: nur nicht gezählte").apply { isCheckable = true; isChecked = onlyOpen }
+        menu.add(0, 6, 0, "Filter: nur Differenzen").apply { isCheckable = true; isChecked = onlyDiff }
         menu.add(0, 2, 0, "Artikel ohne Bestand zeigen").apply { isCheckable = true; isChecked = showAll }
+        menu.add(0, 1, 0, "Letzte Zählung rückgängig")
         menu.add(0, 3, 0, "Kopfdaten bearbeiten")
         menu.add(0, 4, 0, "Barcode-Zuordnungen dieses Kunden löschen")
         return true
@@ -511,6 +628,8 @@ class CountActivity : AppCompatActivity() {
             android.R.id.home -> finish()
             1 -> undo()
             2 -> { showAll = !showAll; item.isChecked = showAll; refresh() }
+            5 -> { onlyOpen = !onlyOpen; item.isChecked = onlyOpen; refresh() }
+            6 -> { onlyDiff = !onlyDiff; item.isChecked = onlyDiff; refresh() }
             3 -> startActivity(Intent(this, EditActivity::class.java).putExtra(EXTRA_ID, inv.id))
             4 -> AlertDialog.Builder(this)
                 .setTitle("Barcode-Zuordnungen löschen?")
@@ -523,62 +642,46 @@ class CountActivity : AppCompatActivity() {
         return true
     }
 
-    // ---------------------------------------------------------------- Liste
+    // ---------------------------------------------------------------- Kachel-Liste
 
     private inner class Adapter : RecyclerView.Adapter<Adapter.VH>() {
-        inner class VH(val root: LinearLayout, val name: TextView, val sku: TextView, val zonesText: TextView, val count: TextView, val soll: TextView) :
-            RecyclerView.ViewHolder(root)
+        inner class VH(val frame: FrameLayout, val tile: TextView) : RecyclerView.ViewHolder(frame)
 
         override fun getItemCount() = visible.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
             val ctx = parent.context
-            val root = ctx.hbox().apply {
+            val frame = FrameLayout(ctx).apply {
                 layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setPadding(dp(5), dp(5), dp(5), dp(5))
             }
-            val left = ctx.vbox()
-            val name = ctx.text(sizeSp = 20f, bold = true)
-            val sku = ctx.text(sizeSp = 14f, color = Colors.grey)
-            val zt = ctx.text(sizeSp = 16f)
-            left.addView(name); left.addView(sku); left.addView(zt)
-            root.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            val right = ctx.vbox().apply { gravity = Gravity.END }
-            val count = ctx.text(sizeSp = 28f, bold = true).apply { gravity = Gravity.END }
-            val soll = ctx.text(sizeSp = 18f, bold = true, color = Colors.grey).apply { gravity = Gravity.END }
-            right.addView(count); right.addView(soll)
-            root.addView(right, LinearLayout.LayoutParams(dp(118), ViewGroup.LayoutParams.WRAP_CONTENT))
-            return VH(root, name, sku, zt, count, soll)
+            val tile = TextView(ctx).apply {
+                minHeight = dp(96)
+                gravity = Gravity.CENTER
+                textSize = 18f
+                setTypeface(typeface, Typeface.BOLD)
+                maxLines = 4
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                isClickable = true
+                isFocusable = true
+                val ta = ctx.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                foreground = ta.getDrawable(0)
+                ta.recycle()
+            }
+            frame.addView(tile, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            return VH(frame, tile)
         }
 
         override fun onBindViewHolder(h: VH, position: Int) {
             val a = visible[position]
-            val ist = inv.counted(a.sku)
-            val st = inv.status(a)
-            h.name.text = a.name
-            h.sku.text = a.sku + (if (inv.notes[a.sku]?.isNotBlank() == true) "  · 📝" else "")
-            h.zonesText.text = zones.mapNotNull { z -> inv.zoneQty(a.sku, z)?.let { "$z: $it" } }.joinToString("   ")
-                .ifEmpty { "noch nicht gezählt" } + if (a.sku in inv.estimated) "   (geschätzt)" else ""
-            h.count.text = ist?.toString() ?: "–"
-            h.soll.text = if (inv.blind) "" else "Soll ${a.soll}"
-            val bg = when {
-                ist == null -> if (position % 2 == 1) Color.argb(14, 0, 0, 0) else Color.TRANSPARENT
-                inv.blind -> Colors.okBg
-                st == Status.STIMMT -> Colors.okBg
-                st == Status.GESCHAETZT -> Colors.estBg
-                else -> Colors.diffBg
+            h.tile.text = a.name
+            h.tile.setTextColor(Colors.tileText)
+            h.tile.background = GradientDrawable().apply {
+                cornerRadius = dpf(14f)
+                setColor(tileColor(a))
             }
-            h.root.setBackgroundColor(bg)
-            h.count.setTextColor(
-                when {
-                    ist == null -> Colors.grey
-                    inv.blind || st == Status.STIMMT -> Colors.ok
-                    st == Status.GESCHAETZT -> Colors.warn
-                    else -> Colors.error
-                },
-            )
-            h.root.setOnClickListener { if (dialog?.isShowing != true) askQuantity(a) }
-            h.root.setOnLongClickListener { if (dialog?.isShowing != true) editArticle(a); true }
+            h.tile.contentDescription = a.name + " – " + inv.status(a).label
+            h.tile.setOnClickListener { openArticle(a) }
         }
     }
 }

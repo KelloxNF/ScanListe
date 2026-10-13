@@ -93,6 +93,14 @@ object Colors {
     val barWarn = Color.rgb(156, 87, 0)
     val barIdle = Color.rgb(90, 100, 114)
 
+    // Kachelfarben (Hintergrund) und Kachel-Schrift – hell/dunkel
+    var tileNone = Color.rgb(236, 239, 241)
+    var tileOk = Color.rgb(200, 230, 201)
+    var tileDiff = Color.rgb(255, 205, 210)
+    var tileEst = Color.rgb(255, 245, 157)
+    var tileBlind = Color.rgb(187, 222, 251)
+    var tileText = Color.rgb(20, 20, 20)
+
     val okBg = Color.argb(60, 46, 125, 50)
     val diffBg = Color.argb(70, 230, 120, 0)
     val estBg = Color.argb(70, 242, 169, 0)
@@ -106,12 +114,16 @@ object Colors {
             warn = Color.rgb(255, 183, 77)
             grey = Color.rgb(170, 170, 170)
             idle = Color.rgb(176, 190, 197)
+            tileNone = Color.rgb(48, 54, 61); tileOk = Color.rgb(30, 80, 34); tileDiff = Color.rgb(110, 30, 30)
+            tileEst = Color.rgb(105, 90, 15); tileBlind = Color.rgb(28, 60, 100); tileText = Color.WHITE
         } else {
             ok = Color.rgb(46, 125, 50)
             error = Color.rgb(198, 40, 40)
             warn = Color.rgb(156, 87, 0)
             grey = Color.rgb(110, 110, 110)
             idle = Color.rgb(90, 100, 114)
+            tileNone = Color.rgb(236, 239, 241); tileOk = Color.rgb(200, 230, 201); tileDiff = Color.rgb(255, 205, 210)
+            tileEst = Color.rgb(255, 245, 157); tileBlind = Color.rgb(187, 222, 251); tileText = Color.rgb(20, 20, 20)
         }
     }
 

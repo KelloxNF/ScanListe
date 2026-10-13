@@ -25,15 +25,18 @@ Mehrere Listen anlegen, mit dem eingebauten Scanner befüllen, keine Duplikate, 
 1. **Neue Inventur**: Kunde (bekannte Kunden werden vorgeschlagen), Stichtag, Zähler, Schreiber, Zählort.
    **Systembestand importieren**: Excel- (.xlsx) oder CSV-Export aus dem Lagersystem mit den Spalten
    *Artikelnummer, Artikel, Bestand, Bestand in Technik*. Die Reihenfolge der Spalten ist egal.
-2. **Zählen**: oben den Bereich (Versand / Lager / Außenlager) wählen, Artikel scannen oder antippen, Menge eingeben.
-   - „Jeder Scan = 1 Stück“ anhaken, wenn jedes Gerät einzeln gescannt wird.
-   - Unbekannter Barcode (z. B. EAN statt Artikelnummer): einmal dem Artikel zuordnen – die App merkt es sich je Kunde.
-     Haben Neu- und Refware dieselbe EAN, beide ankreuzen; die App fragt dann bei jedem Scan nach.
-   - Langes Tippen auf einen Artikel (oder „Ändern“ im Mengen-Fenster): **Bezeichnung umbenennen**, Mengen je Bereich
-     korrigieren, „Ist = Sollbestand“ anhaken (trägt den Soll im gewählten Bereich ein), „geschätzt“ markieren, Bemerkung. Die Artikelnummer bleibt; die neue Bezeichnung merkt sich die App
-     je Kunde und verwendet sie auch bei der nächsten Inventur.
-   - ⋮ → „Letzte Zählung rückgängig“.
-   - Grün = stimmt, orange = Differenz. Bei **Blindzählung** wird der Sollbestand ausgeblendet.
+2. **Zählen**: Die Artikel erscheinen als Kacheln (nur Bezeichnung).
+   Farbe: grau = noch nicht gezählt, grün = Bestand stimmt, rot = Differenz, gelb = geschätzt
+   (bei Blindzählung blau = gezählt). Oben sucht man nach Name oder Artikelnummer;
+   ⋮ → „Filter: nur nicht gezählte“ / „Filter: nur Differenzen“ zum An- und Ausschalten.
+   - **Kachel antippen** öffnet das Artikel-Fenster: Artikelnummer, Soll, gezählte Menge je Bereich,
+     Bereich wählen (Versand / Lager / Außenlager), „Feste Menge je Scan“, Menge von Hand, Rückgängig,
+     „Korrigieren …“ (Bezeichnung, Mengen je Bereich, „Bestand stimmt“, geschätzt, Bemerkung, Löschen).
+   - **Gescannt wird nur bei geöffnetem Artikel.** Ohne geöffneten Artikel zählt ein Scan nichts, es
+     erscheint nur ein Hinweis. Ein Scan eines anderen Artikels im offenen Fenster wird abgewiesen.
+   - Unbekannter Barcode im offenen Fenster: die App fragt, ob er diesem Artikel zugeordnet werden soll,
+     und merkt es sich je Kunde (gleiche EAN bei Neu- und Refware: bei beiden zuordnen).
+   - „Feste Menge je Scan“ (z. B. 20 je voller Verpackungseinheit) gilt für die ganze Zähl-Sitzung.
    - Uhrzeit von/bis wird automatisch aus der ersten und letzten Zählung eingetragen.
 3. **Ergebnis & Dokumente**: Differenzen prüfen, dann
    - **Anschreiben (PDF)** – je Artikel eine Zeile mit der vollen Bezeichnung aus der App und der gezählten Menge,
