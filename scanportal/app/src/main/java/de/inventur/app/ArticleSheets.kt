@@ -136,11 +136,11 @@ class ArticleSheets(private val host: CountActivity) {
                 z to f
             }
             box.addView(text("Leeres Feld = in diesem Bereich nicht gezählt.", 13f, color = Colors.appSub).apply { setPadding(0, dp(6), 0, 0) })
-            val err = text("", 13f, color = Colors.badEdge)
+            val err = text("", 13f, color = Colors.badEdge).apply { visibility = View.GONE }
             box.addView(err)
             open("Mengen je Bereich", if (inv.blind) null else "Soll: ${a.soll}", box, "Speichern") {
                 val bad = fields.firstOrNull { (_, f) -> f.text.isNotBlank() && f.text.toString().trim().toIntOrNull() == null }
-                if (bad != null) { err.text = "Ungültige Menge bei ${bad.first}"; return@open false }
+                if (bad != null) { err.text = "Ungültige Menge bei ${bad.first}"; err.visibility = View.VISIBLE; return@open false }
                 val values = fields.associate { (z, f) -> z to f.text.toString().trim().toIntOrNull() }
                 if (session.setZones(a.sku, values)) screen.say("✓ gespeichert – gesamt ${inv.counted(a.sku) ?: "–"}", Colors.barOk) else saveFailed()
                 screen.render()
