@@ -575,7 +575,7 @@ class CountActivity : AppCompatActivity() {
     // ================================================================ Unterfenster (Bottom-Sheet)
 
     /** Bottom-Sheet mit Titel, Hinweis, Inhalt und „Abbrechen“ / [okText]. onOk liefert false, wenn es offen bleiben soll. */
-    private fun openSheet(title: String, hint: String?, content: View?, okText: String, onOk: () -> Boolean): BottomSheetDialog {
+    private fun openSheet(title: String, hint: String?, content: View?, okText: String, okColor: Int = Colors.accent, onOk: () -> Boolean): BottomSheetDialog {
         val d = BottomSheetDialog(this)
         val box = vbox(16).apply { background = rounded(Colors.cardBg, 0f) }
         box.addView(text(title, 17f, bold = true, color = Colors.appFg))
@@ -584,7 +584,7 @@ class CountActivity : AppCompatActivity() {
         val two = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12), 0, 0) }
         two.addView(flatButton("Abbrechen", Colors.cardBg, Colors.appFg, Colors.line) { d.dismiss() }.apply { textSize = 17f },
             LinearLayout.LayoutParams(0, dp(54), 1f).apply { marginEnd = dp(8) })
-        two.addView(flatButton(okText, Colors.accent, Color.WHITE) { if (onOk()) d.dismiss() }.apply { textSize = 17f },
+        two.addView(flatButton(okText, okColor, Color.WHITE) { if (onOk()) d.dismiss() }.apply { textSize = 17f },
             LinearLayout.LayoutParams(0, dp(54), 1f))
         box.addView(two)
         d.setContentView(ScrollView(this).apply { addView(box) })
@@ -641,7 +641,23 @@ class CountActivity : AppCompatActivity() {
 
     private fun sheetBestandStimmt() {
         val a = cur ?: return
-        openSheet("Bestand stimmt", "Trägt ${a.soll} in „$zone“ ein. Die anderen Bereiche werden geleert.", null, "Eintragen") {
+        val existing = zones.mapNotNull { z -> inv.zoneQty(a.sku, z)?.let { "$z: $it" } }
+        val warn = if (existing.isEmpty()) null else text(
+            "⚠ Achtung: Für diesen Artikel sind bereits Mengen erfasst (${existing.joinToString(", ")}, " +
+                "gesamt ${inv.counted(a.sku)}). Alle bereits existierenden Mengen werden gelöscht und durch " +
+                "${a.soll} in „$zone“ ersetzt.",
+            15f, bold = true, color = Colors.badEdge,
+        ).apply {
+            background = rounded(Colors.badFill, 10f, Colors.badEdge)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        openSheet(
+            if (existing.isEmpty()) "Bestand stimmt" else "Bestand stimmt – vorhandene Mengen löschen?",
+            "Trägt ${a.soll} in „$zone“ ein. Die anderen Bereiche werden geleert.",
+            warn,
+            if (existing.isEmpty()) "Eintragen" else "Löschen & eintragen",
+            if (existing.isEmpty()) Colors.accent else Colors.badEdge,
+        ) {
             for (z in zones) inv.setZone(a.sku, z, if (z == zone) a.soll else null)
             undoStack.removeAll { it.sku == a.sku }
             inv.closed = false

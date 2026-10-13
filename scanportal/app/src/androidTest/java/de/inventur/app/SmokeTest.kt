@@ -140,6 +140,17 @@ class SmokeTest {
             shot("8_korrigieren")
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
+            // „Bestand stimmt“ bei bereits erfassten Mengen → Warnung
+            sc.onActivity { act -> open(act, "TST20003096") }
+            instr.waitForIdleSync(); Thread.sleep(500)
+            sc.onActivity { act ->
+                val m = CountActivity::class.java.getDeclaredMethod("sheetBestandStimmt")
+                m.isAccessible = true
+                m.invoke(act)
+            }
+            shot("8b_bestand_stimmt_warnung")
+        }
+        ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
             // Unbekannter Barcode bei geöffnetem Artikel → Zuordnen-Frage
             sc.onActivity { act -> open(act, "TST20002974") }
             scan("4006381333931")
