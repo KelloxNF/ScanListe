@@ -102,14 +102,7 @@ class SmokeTest {
             ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, code))
             instr.waitForIdleSync(); Thread.sleep(400)
         }
-        fun open(act: CountActivity, sku: String) {
-            val m = CountActivity::class.java.getDeclaredMethod("openArticle", Article::class.java)
-            m.isAccessible = true
-            m.invoke(act, InventoryStore.load(ctx, inv.id)!!.article(sku))
-        }
-        fun setField(act: CountActivity, name: String, value: Any) {
-            val f = CountActivity::class.java.getDeclaredField(name); f.isAccessible = true; f.set(act, value)
-        }
+        fun open(act: CountActivity, sku: String) = act.openArticle(InventoryStore.load(ctx, inv.id)!!.article(sku)!!)
         ActivityScenario.launch<CountActivity>(countIntent).use {
             shot("3_zaehlen")
             // Scan ohne geöffneten Artikel: nichts zählen, nur Hinweis
@@ -119,7 +112,7 @@ class SmokeTest {
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
             // Feste Menge 20 je Scan, Artikel öffnen, zwei Scans, ein falscher Artikel
-            sc.onActivity { act -> setField(act, "fixedOn", true); setField(act, "fixedN", 20); open(act, "TST20003013") }
+            sc.onActivity { act -> act.session.fixedOn = true; act.session.fixedN = 20; open(act, "TST20003013") }
             instr.waitForIdleSync(); Thread.sleep(500)
             scan("TST20003013"); scan("TST20003013")
             scan("TST20003096")   // falscher Artikel – darf nicht zählen
@@ -132,22 +125,14 @@ class SmokeTest {
             // Artikel-Bildschirm, dann „Mengen je Bereich korrigieren“
             sc.onActivity { act -> open(act, "TST20002974") }
             shot("8a_artikel_offen")
-            sc.onActivity { act ->
-                val m = CountActivity::class.java.getDeclaredMethod("sheetZones")
-                m.isAccessible = true
-                m.invoke(act)
-            }
+            sc.onActivity { act -> act.sheets.zones() }
             shot("8_korrigieren")
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
             // „Bestand stimmt“ bei bereits erfassten Mengen → Warnung
             sc.onActivity { act -> open(act, "TST20003096") }
             instr.waitForIdleSync(); Thread.sleep(500)
-            sc.onActivity { act ->
-                val m = CountActivity::class.java.getDeclaredMethod("sheetBestandStimmt")
-                m.isAccessible = true
-                m.invoke(act)
-            }
+            sc.onActivity { act -> act.sheets.bestandStimmt() }
             shot("8b_bestand_stimmt_warnung")
         }
         ActivityScenario.launch<CountActivity>(countIntent).use { sc ->

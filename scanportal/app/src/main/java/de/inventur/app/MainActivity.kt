@@ -1,5 +1,7 @@
 package de.inventur.app
 
+import de.scanportal.app.dp
+
 import de.scanportal.app.DataWedge
 
 import android.content.Intent
@@ -22,15 +24,11 @@ import androidx.recyclerview.widget.RecyclerView
 /** Übersicht aller Inventuren – zugleich die Gesamtübersicht über alle Kunden. */
 class MainActivity : AppCompatActivity() {
     /** Scans auf diesem Bildschirm landen nirgends – darauf deutlich hinweisen. */
-    private val scanHint = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
-            android.widget.Toast.makeText(this@MainActivity, "Scan nicht gespeichert – bitte zuerst eine Inventur öffnen", android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
+    private val scanHint = de.scanportal.app.ScanHint(this) { "Scan nicht gespeichert – bitte zuerst eine Inventur öffnen" }
 
     override fun onPause() {
         super.onPause()
-        runCatching { unregisterReceiver(scanHint) }
+        scanHint.unregister()
     }
 
 
@@ -68,9 +66,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        androidx.core.content.ContextCompat.registerReceiver(
-            this, scanHint, android.content.IntentFilter(DataWedge.SCAN_ACTION), androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
-        )
+        scanHint.register()
         // Alle Inventuren im Hintergrund laden – bleibt flüssig, auch wenn es über die Jahre viele werden
         Thread {
             val loaded = InventoryStore.all(this)

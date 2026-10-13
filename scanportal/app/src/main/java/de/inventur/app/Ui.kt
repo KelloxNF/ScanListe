@@ -5,12 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
-import android.media.AudioManager
-import android.media.ToneGenerator
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
+import android.graphics.drawable.GradientDrawable
+import de.scanportal.app.dp
+import de.scanportal.app.dpf
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -24,8 +21,6 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /** Kleine Helfer, damit die Oberflächen ohne viele XML-Dateien auskommen. */
-fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
-fun Context.dpf(v: Float): Float = v * resources.displayMetrics.density
 
 fun Context.vbox(padding: Int = 0): LinearLayout = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL
@@ -110,9 +105,6 @@ object Colors {
     var chipBg = Color.rgb(225, 229, 236)
     val accent = Color.rgb(31, 111, 209)
 
-    val okBg = Color.argb(60, 46, 125, 50)
-    val diffBg = Color.argb(70, 230, 120, 0)
-    val estBg = Color.argb(70, 242, 169, 0)
 
     fun init(ctx: Context) {
         val night = (ctx.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
@@ -154,22 +146,31 @@ object Colors {
     }
 }
 
-/** Piepton und Vibration als Rückmeldung beim Scannen. */
-class Feedback(private val ctx: Context) {
-    private val tone = runCatching { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90) }.getOrNull()
-
-    fun ok() { tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120) }
-
-    fun error() {
-        tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
-        @Suppress("DEPRECATION")
-        val v: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
-            ctx.getSystemService(VibratorManager::class.java)?.defaultVibrator
-        } else ctx.getSystemService(Vibrator::class.java)
-        v?.vibrate(VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE))
+/** Abgerundete Fläche mit optionalem Rand – für Kacheln, Karten, Knöpfe. */
+fun Context.rounded(fill: Int, radiusDp: Float, stroke: Int? = null, strokeDp: Int = 1): GradientDrawable =
+    GradientDrawable().apply {
+        cornerRadius = dpf(radiusDp)
+        setColor(fill)
+        if (stroke != null) setStroke(dp(strokeDp), stroke)
     }
 
-    fun release() { tone?.release() }
+/** Flacher Knopf mit eigener Farbe (ohne Material-Schatten). */
+fun Context.flatButton(label: String, bg: Int, fg: Int, stroke: Int? = null, onClick: () -> Unit): Button =
+    Button(this).apply {
+        text = label
+        isAllCaps = false
+        textSize = 16f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(fg)
+        background = rounded(bg, 12f, stroke)
+        stateListAnimator = null
+        setOnClickListener { onClick() }
+    }
+
+/** Standard-Antipp-Effekt (Ripple) als Vordergrund. */
+fun Context.touchFeedback(): android.graphics.drawable.Drawable? {
+    val ta = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+    return ta.getDrawable(0).also { ta.recycle() }
 }
 
 /** Schreibt eine Datei in den Export-Cache und öffnet „Teilen“ (E-Mail, Drive, Drucker-App …). */

@@ -10,16 +10,7 @@ data class Article(
     val name: String,
     val soll: Int,
     val technik: Int,
-) {
-    /** Refware erkennt man an der Endung "Ref" der Artikelnummer. */
-    val isRef: Boolean get() = sku.trim().endsWith("Ref")
-
-    /** Artikelnummer ohne "Ref" – verbindet Neu- und Refware zu einer Zeile im Anschreiben. */
-    val baseSku: String get() = sku.trim().let { if (isRef) it.dropLast(3) else it }
-
-    /** Artikelname ohne " Ref". */
-    val baseName: String get() = name.trim().removeSuffix(" Ref").removeSuffix(" ref").trim()
-}
+)
 
 /** Eine einzelne Zählung: Menge eines Artikels in einem Zählbereich. */
 data class CountEntry(
@@ -134,16 +125,6 @@ class Inventory(
         return true
     }
 
-    fun removeCount(e: CountEntry): Boolean = _counts.remove(e).also { index = null }
-
-    /** Entfernt die zuletzt erfasste Zählung und gibt sie zurück. */
-    fun removeLastCount(): CountEntry? {
-        val last = _counts.maxByOrNull { it.time } ?: return null
-        _counts.remove(last)
-        index = null
-        return last
-    }
-
     fun replaceCounts(list: List<CountEntry>) { _counts.clear(); _counts.addAll(list); index = null }
 
     /** Bereiche, in denen gezählt wurde (z. B. alte Namen nach Umbenennung in den Einstellungen). */
@@ -225,5 +206,4 @@ object Dates {
     fun parse(s: String): LocalDate? = runCatching { LocalDate.parse(s, iso) }.getOrNull()
     fun display(s: String): String = parse(s)?.format(de) ?: s
     fun long(s: String): String = parse(s)?.format(long) ?: s
-    fun year(s: String): String = parse(s)?.year?.toString() ?: ""
 }

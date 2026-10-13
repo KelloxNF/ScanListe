@@ -1,5 +1,7 @@
 package de.inventur.app
 
+import de.scanportal.app.dp
+
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle

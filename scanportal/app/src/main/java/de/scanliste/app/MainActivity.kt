@@ -2,11 +2,9 @@ package de.scanliste.app
 
 import de.scanportal.app.R
 import de.scanportal.app.DataWedge
+import de.scanportal.app.ScanHint
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,7 +15,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,15 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyView: TextView
 
     /** Scans in der Übersicht landen nirgends, darauf weisen wir deutlich hin. */
-    private val scanReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            Toast.makeText(
-                this@MainActivity,
-                "Scan nicht gespeichert – bitte zuerst eine Liste öffnen",
-                Toast.LENGTH_LONG,
-            ).show()
-        }
-    }
+    private val scanHint = ScanHint(this) { "Scan nicht gespeichert – bitte zuerst eine Liste öffnen" }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,15 +54,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        ContextCompat.registerReceiver(
-            this, scanReceiver, IntentFilter(DataWedge.SCAN_ACTION), ContextCompat.RECEIVER_EXPORTED,
-        )
+        scanHint.register()
         reload()
     }
 
     override fun onPause() {
         super.onPause()
-        unregisterReceiver(scanReceiver)
+        scanHint.unregister()
     }
 
     private fun reload() {

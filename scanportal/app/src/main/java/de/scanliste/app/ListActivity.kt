@@ -2,6 +2,8 @@ package de.scanliste.app
 
 import de.scanportal.app.R
 import de.scanportal.app.DataWedge
+import de.scanportal.app.Tones
+import de.scanportal.app.dp
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -9,14 +11,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.Menu
@@ -51,7 +47,7 @@ class ListActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var feedbackText: TextView
     private lateinit var input: EditText
-    private var tone: ToneGenerator? = null
+    private lateinit var tones: Tones
     private var receiverRegistered = false
 
     private val scanReceiver = object : BroadcastReceiver() {
@@ -101,7 +97,7 @@ class ListActivity : AppCompatActivity() {
             }
         }
 
-        tone = runCatching { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90) }.getOrNull()
+        tones = Tones(this)
         updateStatus()
         scrollToEnd()
     }
@@ -123,7 +119,7 @@ class ListActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        tone?.release()
+        if (::tones.isInitialized) tones.release()
         super.onDestroy()
     }
 
@@ -146,8 +142,7 @@ class ListActivity : AppCompatActivity() {
                         colSuffix(result.col),
                     error = true,
                 )
-                tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
-                vibrate()
+                tones.error()
                 recycler.scrollToPosition(result.row)
                 false
             }
@@ -162,7 +157,7 @@ class ListActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
                 val typeInfo = if (type != null) " ($type)" else ""
                 showFeedback("✓ ${raw.trim()}$typeInfo", error = false)
-                tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                tones.ok()
                 scrollToEnd()
                 updateStatus()
                 true
@@ -176,8 +171,7 @@ class ListActivity : AppCompatActivity() {
         true
     } catch (e: Exception) {
         showFeedback("✗ Nicht gespeichert – ist der Gerätespeicher voll?", error = true)
-        tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
-        vibrate()
+        tones.error()
         false
     }
 
@@ -200,15 +194,6 @@ class ListActivity : AppCompatActivity() {
         if (list.rows.isNotEmpty()) recycler.scrollToPosition(list.rows.size - 1)
     }
 
-    @Suppress("DEPRECATION")
-    private fun vibrate() {
-        val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
-            getSystemService(VibratorManager::class.java)?.defaultVibrator
-        } else {
-            getSystemService(Vibrator::class.java)
-        }
-        vibrator?.vibrate(VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE))
-    }
 
     // ---------- Bearbeiten ----------
 
@@ -297,12 +282,10 @@ object Table {
     private const val CELL_WIDTH = 190
     private const val TIME_WIDTH = 160
 
-    private fun dp(ctx: Context, v: Int) = (v * ctx.resources.displayMetrics.density).toInt()
-
     private fun cell(ctx: Context, widthDp: Int, bold: Boolean = false, alignEnd: Boolean = false) =
         TextView(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(ctx, widthDp), ViewGroup.LayoutParams.WRAP_CONTENT)
-            setPadding(dp(ctx, 8), dp(ctx, 10), dp(ctx, 8), dp(ctx, 10))
+            layoutParams = LinearLayout.LayoutParams(ctx.dp(widthDp), ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPadding(ctx.dp(8), ctx.dp(10), ctx.dp(8), ctx.dp(10))
             textSize = 15f
             if (bold) setTypeface(typeface, Typeface.BOLD)
             if (alignEnd) gravity = Gravity.END

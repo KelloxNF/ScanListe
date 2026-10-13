@@ -1,5 +1,7 @@
 package de.inventur.app
 
+import de.scanportal.app.dp
+
 import android.os.Bundle
 import android.view.MenuItem
 import android.widget.ScrollView

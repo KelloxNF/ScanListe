@@ -36,9 +36,6 @@ class LogicTest {
         assertEquals("FRITZ!Box 5590 Ref", a.name)
         assertEquals(114, a.soll)
         assertEquals(568, a.technik)
-        assertTrue(a.isRef)
-        assertEquals("TST20003013", a.baseSku)
-        assertEquals("FRITZ!Box 5590", a.baseName)
         assertTrue(r.info.startsWith("9 Artikel importiert, davon 5 mit Bestand"))
     }
 
@@ -176,11 +173,11 @@ class FixesTest {
         val e1 = CountEntry("A", "Versand", 4, 1)
         i.addCount(e1); i.addCount(CountEntry("A", "Lager", 3, 2))
         assertEquals(7, i.counted("A")); assertEquals(4, i.zoneQty("A", "Versand"))
-        i.removeCount(e1)
+        assertTrue(i.retract("A", "Versand", 4))
         assertEquals(3, i.counted("A")); assertNull(i.zoneQty("A", "Versand"))
         i.addCount(CountEntry("B", "Lager", 2, 3))
         assertEquals(2, i.listArticles().size)                 // B erscheint, weil gezählt
-        assertEquals("B", i.removeLastCount()!!.sku)
+        assertTrue(i.retract("B", "Lager", 2))
         assertEquals(1, i.listArticles().size)
         i.setZone("A", "Lager", 10)
         assertEquals(10, i.counted("A")); assertEquals(Status.STIMMT, i.status(i.article("A")!!))

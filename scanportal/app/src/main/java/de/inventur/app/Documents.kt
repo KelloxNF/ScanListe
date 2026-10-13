@@ -1,5 +1,7 @@
 package de.inventur.app
 
+import de.scanportal.app.ExcelCsv
+
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -299,10 +301,7 @@ object Documents {
     }
 }
 
-/**
- * CSV-Export im Format, das deutsches Excel direkt öffnet:
- * Semikolon als Trenner, UTF-8 mit BOM, CRLF als Zeilenende.
- */
+/** CSV-Export (Format siehe ExcelCsv). */
 object CsvExport {
 
     fun result(inv: Inventory, zones: List<String>): String {
@@ -335,22 +334,9 @@ object CsvExport {
         return sb.toString()
     }
 
-    fun write(out: OutputStream, text: String) {
-        out.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
-        out.write(text.toByteArray(Charsets.UTF_8))
-        out.flush()
-    }
+    fun write(out: OutputStream, text: String) = ExcelCsv.write(out, text)
 
     private fun StringBuilder.line(cells: List<String>) {
-        append(cells.joinToString(";") { esc(it) }).append("\r\n")
-    }
-
-    private val plainNumber = Regex("^[+-]?\\d+([.,]\\d+)?$")
-
-    /** Schutz vor Formel-Einschleusung in Excel (Werte, die mit = + - @ beginnen). */
-    private fun esc(raw: String): String {
-        var s = raw
-        if (s.isNotEmpty() && s[0] in "=+-@\t\r" && !plainNumber.matches(s)) s = "'$s"
-        return if (s.any { it == ';' || it == '"' || it == '\n' || it == '\r' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
+        append(ExcelCsv.line(cells))
     }
 }
