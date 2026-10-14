@@ -60,6 +60,7 @@ object InventoryStore {
         put("timeTo", inv.timeTo)
         put("blind", inv.blind)
         put("closed", inv.closed)
+        put("includeZero", inv.includeZero)
         put("created", inv.created)
         put("updated", inv.updated)
         put("articles", JSONArray().apply {
@@ -112,6 +113,7 @@ object InventoryStore {
             notes = notes,
             created = o.optLong("created"),
             updated = o.optLong("updated"),
+            includeZero = o.optBoolean("includeZero"),
         )
     }
 }

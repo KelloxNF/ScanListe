@@ -73,6 +73,8 @@ class Inventory(
     val notes: MutableMap<String, String>,
     var created: Long,
     var updated: Long,
+    /** Auch Artikel mit Bestand 0 (ungezählt) in Anschreiben, Zählliste und CSV aufführen. */
+    var includeZero: Boolean = false,
 ) {
     fun article(sku: String): Article? = articles.firstOrNull { it.sku == sku }
 
@@ -170,7 +172,16 @@ class Inventory(
      * Zeilen fürs Anschreiben: je Artikel der Zählliste eine Zeile mit voller Bezeichnung
      * (wie in der App, also auch mit „Ref“) und gezählter Menge, in der Reihenfolge des Systembestands.
      */
-    fun letterRows(): List<LetterRow> = listArticles().map { LetterRow(it.name, counted(it.sku) ?: 0) }
+    fun letterRows(): List<LetterRow> = docArticles().map { LetterRow(it.name, counted(it.sku) ?: 0) }
+
+    /** Artikel für Anschreiben, Zählliste und CSV: die Zählliste, auf Wunsch plus alle mit Bestand 0. */
+    fun docArticles(): List<Article> = if (includeZero) articles.toList() else listArticles()
+
+    /** Mit Bestand 0 importiert und nicht gezählt – nur aufgeführt, wenn [includeZero] an ist. */
+    fun isZeroOnly(a: Article) = a.soll == 0 && !hasCount(a.sku)
+
+    /** Status-Text für die Dokumente („Kein Bestand“ für reine 0-Zeilen). */
+    fun docStatus(a: Article): String = if (isZeroOnly(a)) "Kein Bestand" else status(a).label
 
     /** Entfernt einen Artikel samt seiner Zählungen, Schätz-Markierung und Bemerkung aus dieser Inventur. */
     fun removeArticle(sku: String) {

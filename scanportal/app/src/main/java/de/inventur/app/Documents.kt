@@ -242,7 +242,7 @@ object Documents {
         }
         pdf.y = 120f
         header()
-        val rows = inv.listArticles()
+        val rows = inv.docArticles()
         rows.forEachIndexed { i, a ->
             if (pdf.y + rowH > pdf.h - 40f) { pdf.newPage(); pdf.y = 40f; header() }
             if (i % 2 == 1) c().drawRect(m, pdf.y, right, pdf.y + rowH, stripe)
@@ -252,12 +252,12 @@ object Documents {
             zones.forEach { z -> values.add(inv.zoneQty(a.sku, z)?.let { fmt(it) } ?: "") }
             values.add(ist?.let { fmt(it) } ?: "")
             values.add(ist?.let { val d = it - a.soll; if (d > 0) "+${fmt(d)}" else fmt(d) } ?: "")
-            values.add(st.label)
+            values.add(inv.docStatus(a))
             var x = m
             cols.forEachIndexed { j, col ->
                 val p = when {
                     col.title == "Gesamt" -> cellB
-                    col.title == "Status" -> paint(8.5f, bold = true, color = statusColor(st))
+                    col.title == "Status" -> paint(8.5f, bold = true, color = if (inv.isZeroOnly(a)) Color.DKGRAY else statusColor(st))
                     col.title == "Differenz" && ist != null && ist != a.soll -> paint(8.5f, bold = true, color = Color.rgb(156, 0, 6), align = Paint.Align.RIGHT)
                     col.alignRight -> cellR
                     else -> cellP
@@ -276,7 +276,8 @@ object Documents {
         pdf.y += 22f
         val sumPaint = paint(9f, bold = true)
         val sumText = "Artikel: ${s.articles} · stimmt: ${s.ok} · Differenz: ${s.diff} · geschätzt: ${s.estimated} · nicht gezählt: ${s.notCounted}" +
-            " · Mehrbestand: ${fmt(s.plus)} · Fehlbestand: ${fmt(s.minus)}"
+            " · Mehrbestand: ${fmt(s.plus)} · Fehlbestand: ${fmt(s.minus)}" +
+            rows.count { inv.isZeroOnly(it) }.let { if (it > 0) " · zusätzlich aufgeführt ohne Bestand: $it" else "" }
         wrap(sumText, sumPaint, right - m).forEachIndexed { i, l ->
             if (i > 0) pdf.y += 12f
             c().drawText(l, m, pdf.y, sumPaint)
@@ -312,11 +313,11 @@ object CsvExport {
         head += zones
         head += listOf("Ist", "Differenz", "Status", "Bemerkung")
         sb.line(head)
-        for (a in inv.listArticles()) {
+        for (a in inv.docArticles()) {
             val ist = inv.counted(a.sku)
             val r = mutableListOf(inv.customer.name, Dates.display(inv.stichtag), a.sku, a.name, a.soll.toString(), a.technik.toString())
             zones.forEach { z -> r.add(inv.zoneQty(a.sku, z)?.toString() ?: "") }
-            r += listOf(ist?.toString() ?: "", ist?.let { (it - a.soll).toString() } ?: "", inv.status(a).label, inv.notes[a.sku] ?: "")
+            r += listOf(ist?.toString() ?: "", ist?.let { (it - a.soll).toString() } ?: "", inv.docStatus(a), inv.notes[a.sku] ?: "")
             sb.line(r)
         }
         return sb.toString()

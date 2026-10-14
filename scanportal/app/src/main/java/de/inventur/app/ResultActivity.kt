@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,6 +60,23 @@ class ResultActivity : AppCompatActivity() {
         docs.addView(button("Zählliste\n(PDF)") { sheet() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         docs.addView(button("Ergebnis\n(CSV)") { csv() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(docs)
+        val zeroCount = inv.articles.count { inv.isZeroOnly(it) }
+        val zero = CheckBox(this).apply {
+            text = "Artikel mit Bestand 0 in Anschreiben und Zählliste aufführen ($zeroCount)"
+            textSize = 15f
+            isChecked = inv.includeZero
+            setOnCheckedChangeListener { box, on ->
+                if (on == inv.includeZero) return@setOnCheckedChangeListener   // Zurücksetzen nach Fehler
+                inv.includeZero = on
+                val saved = runCatching { InventoryStore.save(this@ResultActivity, inv) }.isSuccess
+                if (!saved) {
+                    inv.includeZero = !on
+                    box.isChecked = !on
+                    toast("Nicht gespeichert – ist der Gerätespeicher voll?")
+                }
+            }
+        }
+        root.addView(zero.lp().apply { setPadding(dp(10), dp(4), dp(10), dp(4)) })
         closeButton = button("") { toggleClosed() }
         root.addView(closeButton.lp().apply { setPadding(dp(6), 0, dp(6), 0) })
 
