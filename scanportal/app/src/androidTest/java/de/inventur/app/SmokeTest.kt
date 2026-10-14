@@ -90,6 +90,15 @@ class SmokeTest {
         sheet.outputStream().use { Documents.countSheet(inv, Settings.zones(ctx), it) }
         assertTrue(renderPdf(letter, "pdf_anschreiben") >= 1)
         assertTrue(renderPdf(sheet, "pdf_zaehlliste") >= 1)
+        // Option „Artikel mit Bestand 0 aufführen“
+        inv.includeZero = true
+        val letter0 = File(shots, "anschreiben_mit_0.pdf")
+        letter0.outputStream().use { Documents.letter(inv, Settings.sender(ctx), Settings.footer(ctx), Settings.ceo(ctx), it) }
+        val sheet0 = File(shots, "zaehlliste_mit_0.pdf")
+        sheet0.outputStream().use { Documents.countSheet(inv, Settings.zones(ctx), it) }
+        assertTrue(renderPdf(letter0, "pdf_anschreiben_mit_0") >= 1)
+        assertTrue(renderPdf(sheet0, "pdf_zaehlliste_mit_0") >= 1)
+        inv.includeZero = false
 
         // Bildschirme
         ActivityScenario.launch(PortalActivity::class.java).use { shot("0_portal") }
