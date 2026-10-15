@@ -103,6 +103,24 @@ class SmokeTest {
         // Bildschirme
         ActivityScenario.launch(PortalActivity::class.java).use { shot("0_portal") }
         ActivityScenario.launch(de.scanliste.app.MainActivity::class.java).use { shot("0_scanliste") }
+
+        // Genexis-Scan: ein QR-Code mit 3 Paaren landet in 3 Zeilen
+        val gx = de.scanliste.app.ScanList(
+            de.scanliste.app.ListStore.newId(), "Genexis Test", mutableListOf("Seriennummer", "PON-SN"),
+            withTimestamp = true, genexis = true,
+        )
+        de.scanliste.app.ListStore.save(ctx, gx)
+        val gxIntent = Intent(ctx, de.scanliste.app.ListActivity::class.java).putExtra(de.scanliste.app.ListActivity.EXTRA_ID, gx.id)
+        ActivityScenario.launch<de.scanliste.app.ListActivity>(gxIntent).use {
+            instr.waitForIdleSync(); Thread.sleep(400)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
+                .putExtra(DataWedge.EXTRA_DATA, "GNXS05DFA614\nZ.0225460513\nGNXS05DFA61A\nZ.0225460516\nGNXS05DFA6EE\nZ.0225460580"))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            shot("0b_genexis")
+            val saved = de.scanliste.app.ListStore.load(ctx, gx.id)!!
+            assertEquals(3, saved.rows.size)
+            assertEquals(listOf("GNXS05DFA61A", "Z.0225460516"), saved.rows[1].cells)
+        }
         ActivityScenario.launch(MainActivity::class.java).use { shot("1_uebersicht") }
         ActivityScenario.launch(EditActivity::class.java).use { shot("2_neue_inventur") }
 
