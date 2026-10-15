@@ -147,6 +147,11 @@ class ListActivity : AppCompatActivity() {
         if (list.genexis) {
             val parts = ScanList.splitValues(raw)
             if (parts.size > 1) return handlePairs(parts)
+            if (parts.isEmpty()) return false
+            // Genexis-Scan nimmt nur QR-Codes mit mehreren Werten – ein Einzelwert würde ein Paar zerreißen
+            showFeedback("✗ Kein Genexis-QR-Code: \"${short(raw)}\" ist nur ein einzelner Wert. Nicht übernommen.", error = true)
+            tones.error()
+            return false
         }
         return when (val result = list.add(raw)) {
             is AddResult.Empty -> false
@@ -307,7 +312,7 @@ class ListActivity : AppCompatActivity() {
         invalidateOptionsMenu()
         updateStatus()
         showFeedback(
-            if (list.genexis) "Genexis-Scan an: QR-Codes werden paarweise auf Zeilen verteilt" else "Genexis-Scan aus",
+            if (list.genexis) "Genexis-Scan an: nur QR-Codes mit mehreren Werten, paarweise auf Zeilen verteilt" else "Genexis-Scan aus",
             error = false,
         )
     }

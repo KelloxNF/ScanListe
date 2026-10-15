@@ -116,9 +116,14 @@ class SmokeTest {
             ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
                 .putExtra(DataWedge.EXTRA_DATA, "GNXS05DFA614\nZ.0225460513\nGNXS05DFA61A\nZ.0225460516\nGNXS05DFA6EE\nZ.0225460580"))
             instr.waitForIdleSync(); Thread.sleep(600)
+            // Einzelner Barcode im Genexis-Modus: Fehlermeldung, nichts übernehmen
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
+                .putExtra(DataWedge.EXTRA_DATA, "4006381333931"))
+            instr.waitForIdleSync(); Thread.sleep(600)
             shot("0b_genexis")
             val saved = de.scanliste.app.ListStore.load(ctx, gx.id)!!
             assertEquals(3, saved.rows.size)
+            assertEquals(6, saved.valueCount())
             assertEquals(listOf("GNXS05DFA61A", "Z.0225460516"), saved.rows[1].cells)
         }
         ActivityScenario.launch(MainActivity::class.java).use { shot("1_uebersicht") }
