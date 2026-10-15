@@ -2,6 +2,10 @@ name: Scan-Portal Lint
 
 on:
   workflow_dispatch:
+  push:
+    branches: [scan-portal]
+    paths:
+      - ".github/workflows/scanportal-lint.yml"
 
 permissions:
   contents: write
