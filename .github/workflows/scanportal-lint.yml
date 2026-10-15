@@ -1,0 +1,35 @@
+name: Scan-Portal Lint
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Lint
+        working-directory: scanportal
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          gradle lintDebug --no-daemon -Pandroid.lint.abortOnError=false || true
+          ls app/build/reports/ || true
+      - name: Bericht in Zweig ablegen
+        run: |
+          mkdir out && cp scanportal/app/build/reports/lint-results-debug.* out/ 2>/dev/null || true
+          cd out
+          git init -q -b scanportal-lint
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -q -m "Lint aus ${GITHUB_SHA::7}" || exit 0
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" scanportal-lint

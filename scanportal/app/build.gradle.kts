@@ -37,6 +37,13 @@ android {
         }
     }
 
+    // Lint nur als Bericht (eigener Workflow), bricht den Build nicht ab
+    lint {
+        abortOnError = false
+        xmlReport = true
+        textReport = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
