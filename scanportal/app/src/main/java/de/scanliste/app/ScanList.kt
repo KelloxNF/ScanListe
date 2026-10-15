@@ -3,6 +3,14 @@ package de.scanliste.app
 /** Eine Zeile der Tabelle: ein Wert pro Spalte, plus Zeitpunkt der Erfassung. */
 data class ScanRow(val cells: MutableList<String>, var time: Long)
 
+/** Ergebnis eines Genexis-Scans (QR-Code mit mehreren Werten, je zwei gehören zusammen). */
+sealed class PairResult {
+    /** [rows] neue Zeilen ab [firstRow]; [skipped] Paare standen schon vollständig in der Liste. */
+    data class Added(val firstRow: Int, val rows: Int, val skipped: Int) : PairResult()
+    /** Nichts übernommen; [message] erklärt warum, [row] zeigt ggf. auf die betroffene Zeile. */
+    data class Rejected(val message: String, val row: Int? = null) : PairResult()
+}
+
 sealed class AddResult {
     object Empty : AddResult()
     data class Duplicate(val row: Int, val col: Int) : AddResult()
@@ -26,7 +34,18 @@ class ScanList(
     val rows: MutableList<ScanRow> = mutableListOf(),
     val created: Long = System.currentTimeMillis(),
     var updated: Long = created,
+    /**
+     * Genexis-Scan: Ein QR-Code mit mehreren Werten (je Zeile ein Wert) wird in Paare zerlegt –
+     * 1.+2. Wert, 3.+4. Wert … Jedes Paar kommt in eine eigene Zeile (1. Spalte / 2. Spalte).
+     */
+    var genexis: Boolean = false,
 ) {
+    companion object {
+        /** Teilt den Inhalt eines Scans in einzelne Werte (eine Zeile je Wert). */
+        fun splitValues(raw: String): List<String> =
+            raw.split('\n', '\r').map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
 
     /** Alle vorhandenen Werte, für eine sofortige Duplikatprüfung auch bei sehr großen Listen. */
     private val values: HashSet<String> = HashSet<String>().also { set ->
@@ -71,6 +90,67 @@ class ScanList(
         values.add(value)
         updated = now
         return AddResult.Added(r, c)
+    }
+
+    /**
+     * Genexis-Scan: übernimmt [values] paarweise, jedes Paar in eine neue Zeile.
+     * Alles oder nichts – bei einem Problem wird kein einziger Wert übernommen, damit kein Paar
+     * auseinandergerissen wird. Paare, die schon vollständig in der Liste stehen, werden übersprungen.
+     */
+    fun addPairs(values: List<String>): PairResult {
+        if (columns.size < 2) return PairResult.Rejected("Genexis-Scan braucht 2 Spalten.")
+        if (values.size % 2 != 0) {
+            return PairResult.Rejected("${values.size} Werte im QR-Code – ungerade Anzahl, Paare unvollständig. Nichts übernommen.")
+        }
+        values.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }?.let {
+            return PairResult.Rejected("\"${it.key}\" steht mehrfach im QR-Code. Nichts übernommen.")
+        }
+        val last = rows.lastOrNull()
+        if (last != null && last.cells.any { it.isNotEmpty() } && last.cells.take(2).any { it.isEmpty() }) {
+            return PairResult.Rejected(
+                "Zeile ${rows.size} ist unvollständig – erst den fehlenden Wert scannen oder rückgängig machen. Nichts übernommen.",
+                rows.size - 1,
+            )
+        }
+        val fresh = ArrayList<Pair<String, String>>()
+        var skipped = 0
+        for ((a, b) in values.chunked(2).map { it[0] to it[1] }) {
+            val hasA = a in this.values
+            val hasB = b in this.values
+            when {
+                hasA && hasB && find(a)?.let { (r, _) -> rows[r].cells.take(2) == listOf(a, b) } == true -> skipped++
+                hasA || hasB -> {
+                    val v = if (hasA) a else b
+                    val r = find(v)?.first
+                    return PairResult.Rejected(
+                        "\"$v\" steht schon in Zeile ${(r ?: 0) + 1}, aber nicht mit demselben Partner. Nichts übernommen.",
+                        r,
+                    )
+                }
+                else -> fresh.add(a to b)
+            }
+        }
+        val first = rows.size
+        val now = System.currentTimeMillis()
+        for ((a, b) in fresh) {
+            val cells = MutableList(columns.size) { "" }
+            cells[0] = a; cells[1] = b
+            rows.add(ScanRow(cells, now))
+            this.values.add(a); this.values.add(b)
+        }
+        if (fresh.isNotEmpty()) updated = now
+        return PairResult.Added(first, fresh.size, skipped)
+    }
+
+    /** Entfernt die letzten [count] Zeilen (für „Rückgängig“ nach einem Genexis-Scan). */
+    fun removeLastRows(count: Int): Int {
+        var n = 0
+        while (n < count && rows.isNotEmpty()) {
+            rows.removeAt(rows.size - 1).cells.forEach { values.remove(it) }
+            n++
+        }
+        if (n > 0) updated = System.currentTimeMillis()
+        return n
     }
 
     /** Entfernt den zuletzt erfassten Wert. Gibt ihn zurück oder null, wenn die Liste leer ist. */

@@ -19,6 +19,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_genexis"
+        android:checkable="true"
+        android:title="Genexis-Scan (QR-Code paarweise)"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_manual"
         android:title="Manuell eingeben"
         app:showAsAction="never" />

@@ -105,6 +105,7 @@ object ListStore {
         put("name", list.name)
         put("columns", JSONArray(list.columns))
         put("withTimestamp", list.withTimestamp)
+        put("genexis", list.genexis)
         put("created", list.created)
         put("updated", list.updated)
         put("rows", JSONArray().apply {
@@ -134,6 +135,7 @@ object ListStore {
             rows = rows,
             created = o.optLong("created"),
             updated = o.optLong("updated"),
+            genexis = o.optBoolean("genexis"),
         )
     }
 }

@@ -26,6 +26,10 @@ import java.util.Locale
 /** Übersicht aller Listen. */
 class MainActivity : AppCompatActivity() {
 
+    private companion object {
+        const val GENEXIS_COLUMNS = "Seriennummer, PON-SN"
+    }
+
     private lateinit var adapter: ListsAdapter
     private lateinit var emptyView: TextView
 
@@ -86,6 +90,13 @@ class MainActivity : AppCompatActivity() {
         val nameInput = view.findViewById<EditText>(R.id.input_name)
         val columnsInput = view.findViewById<EditText>(R.id.input_columns)
         val timestamp = view.findViewById<CheckBox>(R.id.check_timestamp)
+        val genexis = view.findViewById<CheckBox>(R.id.check_genexis)
+        genexis.setOnCheckedChangeListener { _, on ->
+            // Passende Spaltennamen vorschlagen, solange noch die Vorgabe drinsteht
+            val cur = columnsInput.text.toString().trim()
+            if (on && (cur.isEmpty() || cur == "Seriennummer")) columnsInput.setText(GENEXIS_COLUMNS)
+            if (!on && cur == GENEXIS_COLUMNS) columnsInput.setText("Seriennummer")
+        }
 
         nameInput.setText("Liste " + SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date()))
         nameInput.selectAll()
@@ -95,16 +106,19 @@ class MainActivity : AppCompatActivity() {
             .setView(view)
             .setPositiveButton("Anlegen") { _, _ ->
                 val name = nameInput.text.toString().trim().ifEmpty { "Neue Liste" }
-                val columns = columnsInput.text.toString()
+                var columns = columnsInput.text.toString()
                     .split(',', ';')
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .ifEmpty { listOf("Seriennummer") }
+                // Genexis-Scan braucht genau zwei Spalten: eine je Wert des Paars
+                if (genexis.isChecked && columns.size != 2) columns = GENEXIS_COLUMNS.split(", ")
                 val list = ScanList(
                     id = ListStore.newId(),
                     name = name,
                     columns = columns.toMutableList(),
                     withTimestamp = timestamp.isChecked,
+                    genexis = genexis.isChecked,
                 )
                 if (trySave(list)) open(list.id)
             }

@@ -50,6 +50,12 @@ class ListActivity : AppCompatActivity() {
     private lateinit var tones: Tones
     private var receiverRegistered = false
 
+    /**
+     * Was „Letzten Scan rückgängig“ zurücknimmt, jüngster Scan zuletzt:
+     * 0 = ein einzelner Wert, n > 0 = n Zeilen aus einem Genexis-Scan. Gilt für diese Sitzung.
+     */
+    private val undoStack = ArrayDeque<Int>()
+
     /** Liste wurde gespeichert, die Kurzinfo für die Übersicht aber noch nicht. */
     private var infoDirty = false
 
@@ -138,6 +144,10 @@ class ListActivity : AppCompatActivity() {
 
     /** Gibt true zurück, wenn der Wert übernommen wurde. */
     private fun handleValue(raw: String, type: String?): Boolean {
+        if (list.genexis) {
+            val parts = ScanList.splitValues(raw)
+            if (parts.size > 1) return handlePairs(parts)
+        }
         return when (val result = list.add(raw)) {
             is AddResult.Empty -> false
             is AddResult.Duplicate -> {
@@ -158,6 +168,7 @@ class ListActivity : AppCompatActivity() {
                     updateStatus()
                     return false
                 }
+                pushUndo(0)
                 adapter.notifyDataSetChanged()
                 val typeInfo = if (type != null) " ($type)" else ""
                 showFeedback("✓ ${raw.trim()}$typeInfo", error = false)
@@ -167,6 +178,45 @@ class ListActivity : AppCompatActivity() {
                 true
             }
         }
+    }
+
+    /** Genexis-Scan: QR-Code mit mehreren Werten paarweise auf Zeilen verteilen. */
+    private fun handlePairs(parts: List<String>): Boolean {
+        return when (val r = list.addPairs(parts)) {
+            is PairResult.Rejected -> {
+                showFeedback("✗ ${r.message}", error = true)
+                tones.error()
+                r.row?.let { recycler.scrollToPosition(it) }
+                return false
+            }
+            is PairResult.Added -> {
+                if (r.rows == 0) {
+                    showFeedback("✗ Alle ${r.skipped} Paare dieses QR-Codes sind schon erfasst.", error = true)
+                    tones.error()
+                    return false
+                }
+                if (!persist()) {
+                    list.removeLastRows(r.rows)
+                    adapter.notifyDataSetChanged()
+                    updateStatus()
+                    return false
+                }
+                pushUndo(r.rows)
+                adapter.notifyDataSetChanged()
+                val range = if (r.rows == 1) "Zeile ${r.firstRow + 1}" else "Zeilen ${r.firstRow + 1}–${r.firstRow + r.rows}"
+                val skip = if (r.skipped > 0) " · ${r.skipped} schon erfasste übersprungen" else ""
+                showFeedback("✓ ${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range$skip", error = false)
+                tones.ok()
+                scrollToEnd()
+                updateStatus()
+                return true
+            }
+        }
+    }
+
+    private fun pushUndo(entry: Int) {
+        undoStack.addLast(entry)
+        if (undoStack.size > 500) undoStack.removeFirst()
     }
 
     /** Speichert die Liste. Bei einem Fehler (z. B. Speicher voll) Meldung statt Absturz. */
@@ -185,7 +235,8 @@ class ListActivity : AppCompatActivity() {
     private fun updateStatus() {
         val (r, c) = list.nextSlot()
         val next = if (list.columns.size > 1) "Zeile ${r + 1} → ${list.columns[c]}" else "Zeile ${r + 1}"
-        statusText.text = "${list.valueCount()} Einträge · Nächster Scan: $next"
+        statusText.text = (if (list.genexis) "Genexis-Scan · " else "") +
+            "${list.valueCount()} Einträge · Nächster Scan: $next"
     }
 
     private fun showFeedback(text: String, error: Boolean) {
@@ -210,6 +261,7 @@ class ListActivity : AppCompatActivity() {
             .setMessage(values)
             .setPositiveButton("Löschen") { _, _ ->
                 list.removeRow(pos)
+                undoStack.clear()   // Zeilennummern haben sich verschoben
                 persist()
                 adapter.notifyDataSetChanged()
                 updateStatus()
@@ -219,14 +271,32 @@ class ListActivity : AppCompatActivity() {
     }
 
     private fun undo() {
-        val removed = list.undoLast()
-        if (removed == null) {
-            Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
-            return
+        val rowsOfScan = undoStack.removeLastOrNull() ?: 0
+        val message = if (rowsOfScan > 0) {
+            val n = list.removeLastRows(rowsOfScan)
+            "↶ Genexis-Scan entfernt: $n ${if (n == 1) "Paar" else "Paare"}"
+        } else {
+            val removed = list.undoLast()
+            if (removed == null) {
+                Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
+                return
+            }
+            "↶ Entfernt: $removed"
         }
         adapter.notifyDataSetChanged()
         updateStatus()
-        if (persist()) showFeedback("↶ Entfernt: $removed", error = false)
+        if (persist()) showFeedback(message, error = false)
+    }
+
+    private fun toggleGenexis() {
+        list.genexis = !list.genexis
+        if (!persist()) { list.genexis = !list.genexis; return }
+        invalidateOptionsMenu()
+        updateStatus()
+        showFeedback(
+            if (list.genexis) "Genexis-Scan an: QR-Codes werden paarweise auf Zeilen verteilt" else "Genexis-Scan aus",
+            error = false,
+        )
     }
 
     // ---------- Export ----------
@@ -264,6 +334,10 @@ class ListActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.list_menu, menu)
+        menu.findItem(R.id.action_genexis)?.apply {
+            isVisible = list.columns.size >= 2   // ein Paar braucht zwei Spalten
+            isChecked = list.genexis
+        }
         return true
     }
 
@@ -272,6 +346,7 @@ class ListActivity : AppCompatActivity() {
         R.id.action_undo -> { undo(); true }
         R.id.action_export -> { exportLauncher.launch(Csv.fileName(list)); true }
         R.id.action_share -> { share(); true }
+        R.id.action_genexis -> { toggleGenexis(); true }
         R.id.action_manual -> {
             input.requestFocus()
             getSystemService(InputMethodManager::class.java)?.showSoftInput(input, 0)

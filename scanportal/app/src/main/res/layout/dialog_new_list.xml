@@ -50,4 +50,17 @@
         android:layout_marginTop="8dp"
         android:checked="true"
         android:text="Zeitstempel-Spalte" />
+
+    <CheckBox
+        android:id="@+id/check_genexis"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Genexis-Scan" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:alpha="0.7"
+        android:text="QR-Code mit mehreren Werten: je zwei aufeinanderfolgende Werte bilden ein Paar und kommen in eine Zeile (1. und 2. Spalte)."
+        android:textSize="12sp" />
 </LinearLayout>
