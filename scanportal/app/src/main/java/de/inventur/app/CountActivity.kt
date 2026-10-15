@@ -13,7 +13,6 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -133,7 +132,6 @@ class CountActivity : AppCompatActivity() {
 
     // ================================================================ Artikel öffnen / schließen
 
-    @VisibleForTesting
     internal fun openArticle(a: Article) {
         if (cur != null || sheets.isShowing) return
         cur = session.inv.article(a.sku) ?: a
