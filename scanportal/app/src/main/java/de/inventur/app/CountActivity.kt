@@ -184,6 +184,13 @@ class CountActivity : AppCompatActivity() {
         if (code.isEmpty()) return
         val inv = session.inv
         if (sheets.isShowing) { tones.error(); toastShort("Bitte zuerst das offene Fenster schließen."); return }
+        if (code.contains('\n') || code.contains('\r')) {
+            // z. B. ein Genexis-QR-Code mit vielen Seriennummern: gehört in die Listen, nicht in die Inventur
+            tones.error()
+            val msg = "✗ QR-Code mit mehreren Werten – bitte den Barcode des Artikels scannen."
+            if (cur != null) article.say(msg, Colors.barError) else toastShort(msg)
+            return
+        }
         val a = cur
         if (a == null) {
             tones.error()

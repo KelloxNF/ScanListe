@@ -149,6 +149,7 @@ class SmokeTest {
             scan("TST20003013"); scan("TST20003013")
             scan("TST20003096")   // falscher Artikel – darf nicht zählen
             shot("9_artikel_fenster")
+            scan("TST20003013\nTST20003096")   // QR-Code mit mehreren Werten – darf nichts zählen
             val now = InventoryStore.load(ctx, inv.id)!!
             assertEquals(66, now.counted("TST20003013"))
             assertEquals(433, now.counted("TST20003096"))
