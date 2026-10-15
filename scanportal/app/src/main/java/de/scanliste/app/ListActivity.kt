@@ -152,7 +152,7 @@ class ListActivity : AppCompatActivity() {
             is AddResult.Empty -> false
             is AddResult.Duplicate -> {
                 showFeedback(
-                    "✗ Doppelt – \"${raw.trim()}\" steht schon in Zeile ${result.row + 1}" +
+                    "✗ Doppelt – \"${short(raw)}\" steht schon in Zeile ${result.row + 1}" +
                         colSuffix(result.col),
                     error = true,
                 )
@@ -171,7 +171,9 @@ class ListActivity : AppCompatActivity() {
                 pushUndo(0)
                 adapter.notifyDataSetChanged()
                 val typeInfo = if (type != null) " ($type)" else ""
-                showFeedback("✓ ${raw.trim()}$typeInfo", error = false)
+                val many = ScanList.splitValues(raw).size
+                val hint = if (many > 1 && list.columns.size == 2) " · QR-Code mit $many Werten in einer Zelle – für Paare ⋮ → Genexis-Scan" else ""
+                showFeedback("✓ ${short(raw)}$typeInfo$hint", error = false)
                 tones.ok()
                 scrollToEnd()
                 updateStatus()
@@ -212,6 +214,17 @@ class ListActivity : AppCompatActivity() {
                 return true
             }
         }
+    }
+
+    /**
+     * Kurzfassung eines Werts für die Rückmeldeleiste: Ein QR-Code mit vielen Zeilen würde die
+     * Leiste sonst über den halben Bildschirm aufziehen.
+     */
+    private fun short(raw: String): String {
+        val parts = ScanList.splitValues(raw)
+        val first = parts.firstOrNull() ?: raw.trim()
+        val head = if (first.length > 60) first.take(57) + "…" else first
+        return if (parts.size > 1) "$head … (${parts.size} Werte)" else head
     }
 
     private fun pushUndo(entry: Int) {
@@ -281,7 +294,7 @@ class ListActivity : AppCompatActivity() {
                 Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
                 return
             }
-            "↶ Entfernt: $removed"
+            "↶ Entfernt: ${short(removed)}"
         }
         adapter.notifyDataSetChanged()
         updateStatus()
@@ -335,7 +348,7 @@ class ListActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.list_menu, menu)
         menu.findItem(R.id.action_genexis)?.apply {
-            isVisible = list.columns.size >= 2   // ein Paar braucht zwei Spalten
+            isVisible = list.columns.size == 2   // ein Paar = genau eine Zeile mit zwei Spalten
             isChecked = list.genexis
         }
         return true
