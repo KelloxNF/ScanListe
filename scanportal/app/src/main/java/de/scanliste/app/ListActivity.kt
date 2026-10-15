@@ -289,10 +289,17 @@ class ListActivity : AppCompatActivity() {
     }
 
     private fun undo() {
-        val rowsOfScan = undoStack.removeLastOrNull() ?: 0
+        // Im Genexis-Modus immer ganze Zeilen zurücknehmen, nie nur einen Wert – sonst bliebe ein
+        // halbes Paar stehen. Ohne gemerkten Scan (App neu geöffnet, Zeile gelöscht): die letzte Zeile.
+        val rowsOfScan = undoStack.removeLastOrNull()?.takeIf { it > 0 || !list.genexis }
+            ?: if (list.genexis) 1 else 0
         val message = if (rowsOfScan > 0) {
             val n = list.removeLastRows(rowsOfScan)
-            "↶ Genexis-Scan entfernt: $n ${if (n == 1) "Paar" else "Paare"}"
+            if (n == 0) {
+                Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
+                return
+            }
+            "↶ Entfernt: $n ${if (n == 1) "Zeile" else "Zeilen"}"
         } else {
             val removed = list.undoLast()
             if (removed == null) {
