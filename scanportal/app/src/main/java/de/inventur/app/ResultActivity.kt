@@ -1,5 +1,6 @@
 package de.inventur.app
 
+import de.scanportal.app.Share
 import de.scanportal.app.dp
 
 import android.graphics.Color
@@ -186,10 +187,7 @@ class ResultActivity : AppCompatActivity() {
             .setItems(arrayOf("Teilen (E-Mail, Drive, Drucken …)", "Auf dem Gerät speichern …")) { _, which ->
                 if (which == 0) {
                     try {
-                        Share.clear(this)
-                        val f = Share.file(this, name)
-                        f.outputStream().use { writer(kind)(it) }
-                        Share.send(this, f, mime, subject)
+                        Share.send(this, name, mime, subject, writer(kind))
                     } catch (e: Exception) {
                         toast("Erstellen fehlgeschlagen: ${e.message}")
                     }

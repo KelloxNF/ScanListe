@@ -11,6 +11,12 @@ sealed class PairResult {
     data class Rejected(val message: String, val row: Int? = null) : PairResult()
 }
 
+/** Was „Letzten Scan rückgängig“ entfernt hat. */
+sealed class Undone {
+    data class Rows(val count: Int) : Undone()
+    data class Value(val value: String) : Undone()
+}
+
 sealed class AddResult {
     object Empty : AddResult()
     data class Duplicate(val row: Int, val col: Int) : AddResult()
@@ -51,8 +57,6 @@ class ScanList(
     private val values: HashSet<String> = HashSet<String>().also { set ->
         rows.forEach { row -> row.cells.forEach { if (it.isNotEmpty()) set.add(it) } }
     }
-
-    fun contains(value: String): Boolean = value in values
 
     /** Liefert die Position eines vorhandenen Werts oder null. */
     fun find(value: String): Pair<Int, Int>? {
@@ -151,6 +155,22 @@ class ScanList(
         }
         if (n > 0) updated = System.currentTimeMillis()
         return n
+    }
+
+    /**
+     * „Letzten Scan rückgängig“. [lastScanRows] = Zeilen des zuletzt gemerkten Scans
+     * (0 = ein Einzelwert, > 0 = ein Genexis-QR-Code, null = nichts gemerkt, z. B. nach Neustart).
+     * Im Genexis-Modus werden immer ganze Zeilen entfernt – nie ein halbes Paar.
+     * null = Liste war leer.
+     */
+    fun undoScan(lastScanRows: Int?): Undone? {
+        val rowsToRemove = when {
+            lastScanRows != null && lastScanRows > 0 -> lastScanRows
+            genexis -> 1
+            else -> 0
+        }
+        if (rowsToRemove > 0) return removeLastRows(rowsToRemove).takeIf { it > 0 }?.let { Undone.Rows(it) }
+        return undoLast()?.let { Undone.Value(it) }
     }
 
     /** Entfernt den zuletzt erfassten Wert. Gibt ihn zurück oder null, wenn die Liste leer ist. */

@@ -1,8 +1,6 @@
 package de.inventur.app
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -17,8 +15,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.FileProvider
-import java.io.File
 
 /** Kleine Helfer, damit die Oberflächen ohne viele XML-Dateien auskommen. */
 
@@ -171,28 +167,4 @@ fun Context.flatButton(label: String, bg: Int, fg: Int, stroke: Int? = null, onC
 fun Context.touchFeedback(): android.graphics.drawable.Drawable? {
     val ta = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
     return ta.getDrawable(0).also { ta.recycle() }
-}
-
-/** Schreibt eine Datei in den Export-Cache und öffnet „Teilen“ (E-Mail, Drive, Drucker-App …). */
-object Share {
-    fun file(ctx: Context, name: String): File {
-        val dir = File(ctx.cacheDir, "export").apply { mkdirs() }
-        return File(dir, name)
-    }
-
-    /** Alte Exporte aufräumen – nur ältere als 1 Tag, eine Mail-App liest den letzten evtl. noch. */
-    fun clear(ctx: Context) {
-        val limit = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
-        File(ctx.cacheDir, "export").listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
-    }
-
-    fun send(activity: Activity, file: File, mime: String, subject: String) {
-        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
-        val send = Intent(Intent.ACTION_SEND)
-            .setType(mime)
-            .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_SUBJECT, subject)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        activity.startActivity(Intent.createChooser(send, "Teilen"))
-    }
 }

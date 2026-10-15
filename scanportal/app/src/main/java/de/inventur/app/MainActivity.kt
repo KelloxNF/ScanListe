@@ -3,6 +3,7 @@ package de.inventur.app
 import de.scanportal.app.dp
 
 import de.scanportal.app.DataWedge
+import de.scanportal.app.Share
 
 import android.content.Intent
 import android.graphics.Color
@@ -97,10 +98,9 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             1 -> runCatching {
-                Share.clear(this)
-                val f = Share.file(this, "Inventur_Gesamtuebersicht.csv")
-                f.outputStream().use { CsvExport.write(it, CsvExport.overview(InventoryStore.all(this))) }
-                Share.send(this, f, "text/csv", "Inventur – Gesamtübersicht")
+                Share.send(this, "Inventur_Gesamtuebersicht.csv", "text/csv", "Inventur – Gesamtübersicht") {
+                    CsvExport.write(it, CsvExport.overview(InventoryStore.all(this)))
+                }
             }.onFailure { toast("Teilen fehlgeschlagen: ${it.message}") }
             2 -> saveCsv.launch("Inventur_Gesamtuebersicht.csv")
             3 -> startActivity(Intent(this, SettingsActivity::class.java))

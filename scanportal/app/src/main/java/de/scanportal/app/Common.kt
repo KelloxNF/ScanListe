@@ -1,6 +1,8 @@
 package de.scanportal.app
 
 import android.app.Activity
+import androidx.core.content.FileProvider
+import java.io.File
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -63,6 +65,29 @@ class ScanHint(private val activity: Activity, private val message: () -> String
         if (!registered) return
         activity.unregisterReceiver(receiver)
         registered = false
+    }
+}
+
+/** Datei erzeugen und über „Teilen“ weitergeben (E-Mail, Drive, Drucker-App …). */
+object Share {
+    /**
+     * Schreibt [name] mit [write] in den Export-Ordner und öffnet die Teilen-Auswahl.
+     * Räumt vorher nur Exporte auf, die älter als ein Tag sind – eine Mail-App liest den letzten evtl. noch.
+     * Wirft bei einem Fehler (z. B. Speicher voll); der Aufrufer zeigt die Meldung.
+     */
+    fun send(activity: Activity, name: String, mime: String, subject: String, write: (OutputStream) -> Unit) {
+        val dir = File(activity.cacheDir, "export").apply { mkdirs() }
+        val limit = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        dir.listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
+        val file = File(dir, name)
+        file.outputStream().use(write)
+        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType(mime)
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .putExtra(Intent.EXTRA_SUBJECT, subject)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        activity.startActivity(Intent.createChooser(send, "Teilen"))
     }
 }
 

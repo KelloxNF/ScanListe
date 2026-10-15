@@ -79,4 +79,29 @@ class GenexisScanTest {
         assertEquals(2, l.valueCount())
         assertEquals(PairResult.Added(1, 1, 0), l.addPairs(listOf("A2", "B2")))   // wieder frei
     }
+
+    @Test fun undoAfterRestartRemovesWholePairInGenexisMode() {
+        val l = list()
+        l.addPairs(listOf("A1", "B1", "A2", "B2"))
+        // nichts gemerkt (App neu geöffnet): ganze letzte Zeile, kein halbes Paar
+        assertEquals(Undone.Rows(1), l.undoScan(null))
+        assertEquals(listOf(listOf("A1", "B1")), l.rows.map { it.cells })
+    }
+
+    @Test fun undoRemovesRememberedQrScan() {
+        val l = list()
+        l.addPairs(listOf("A1", "B1"))
+        l.addPairs(listOf("A2", "B2", "A3", "B3"))
+        assertEquals(Undone.Rows(2), l.undoScan(2))
+        assertEquals(1, l.rows.size)
+    }
+
+    @Test fun undoInNormalListRemovesSingleValue() {
+        val l = ScanList("n", "Normal", mutableListOf("SN", "MAC"), withTimestamp = false)
+        l.add("X1"); l.add("Y1")
+        assertEquals(Undone.Value("Y1"), l.undoScan(0))
+        assertEquals(listOf("X1", ""), l.rows[0].cells)
+        assertEquals(Undone.Value("X1"), l.undoScan(null))
+        assertEquals(null, l.undoScan(null))
+    }
 }

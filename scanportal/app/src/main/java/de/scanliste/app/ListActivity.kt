@@ -2,6 +2,7 @@ package de.scanliste.app
 
 import de.scanportal.app.R
 import de.scanportal.app.DataWedge
+import de.scanportal.app.Share
 import de.scanportal.app.Tones
 import de.scanportal.app.dp
 
@@ -29,10 +30,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import java.io.File
 
 /** Eine Liste als Tabelle; hier wird gescannt. */
 class ListActivity : AppCompatActivity() {
@@ -289,24 +288,10 @@ class ListActivity : AppCompatActivity() {
     }
 
     private fun undo() {
-        // Im Genexis-Modus immer ganze Zeilen zurücknehmen, nie nur einen Wert – sonst bliebe ein
-        // halbes Paar stehen. Ohne gemerkten Scan (App neu geöffnet, Zeile gelöscht): die letzte Zeile.
-        val rowsOfScan = undoStack.removeLastOrNull()?.takeIf { it > 0 || !list.genexis }
-            ?: if (list.genexis) 1 else 0
-        val message = if (rowsOfScan > 0) {
-            val n = list.removeLastRows(rowsOfScan)
-            if (n == 0) {
-                Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
-                return
-            }
-            "↶ Entfernt: $n ${if (n == 1) "Zeile" else "Zeilen"}"
-        } else {
-            val removed = list.undoLast()
-            if (removed == null) {
-                Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show()
-                return
-            }
-            "↶ Entfernt: ${short(removed)}"
+        val message = when (val u = list.undoScan(undoStack.removeLastOrNull())) {
+            null -> { Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show(); return }
+            is Undone.Rows -> "↶ Entfernt: ${u.count} ${if (u.count == 1) "Zeile" else "Zeilen"}"
+            is Undone.Value -> "↶ Entfernt: ${short(u.value)}"
         }
         adapter.notifyDataSetChanged()
         updateStatus()
@@ -337,19 +322,7 @@ class ListActivity : AppCompatActivity() {
 
     private fun share() {
         try {
-            val dir = File(cacheDir, "export").apply { mkdirs() }
-            // Nur ältere Exporte löschen – eine Mail-App liest den letzten evtl. noch
-            val limit = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
-            dir.listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
-            val file = File(dir, Csv.fileName(list))
-            file.outputStream().use { Csv.write(it, list) }
-            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-            val send = Intent(Intent.ACTION_SEND)
-                .setType("text/csv")
-                .putExtra(Intent.EXTRA_STREAM, uri)
-                .putExtra(Intent.EXTRA_SUBJECT, list.name)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            startActivity(Intent.createChooser(send, "CSV teilen"))
+            Share.send(this, Csv.fileName(list), "text/csv", list.name) { Csv.write(it, list) }
         } catch (e: Exception) {
             Toast.makeText(this, "Teilen fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
         }
