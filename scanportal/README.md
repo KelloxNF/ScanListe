@@ -45,6 +45,12 @@ Jede Version ist mit demselben Schlüssel (`app/scanportal.keystore`) signiert. 
 3. **Ergebnis & Dokumente**: Anschreiben (PDF, ohne Technik-Bestand), Zählliste (PDF), Ergebnis (CSV);
    optional auch Artikel mit Bestand 0. Teilen oder auf dem Gerät speichern, dann abschließen.
 
+## Sperrmodus
+Startseite ⋮ → „Sperrmodus …“: PIN festlegen, die App wird angeheftet (Android fragt einmal, „Verstanden“).
+Dann sind andere Apps gesperrt; Ausschalten, Inventur-Einstellungen und Datensicherung einspielen brauchen
+die PIN. Teilen funktioniert weiter. Empfehlung: in Android unter Sicherheit → „App anpinnen“ die Option
+„Vor dem Loslösen nach PIN fragen“ einschalten. Gilt je Gerät, nicht Teil der Datensicherung.
+
 ## Scanner (DataWedge)
 Die App legt beim Start das Profil **„ScanPortal“** an (Intent-Ausgabe `de.scanportal.app.SCAN`,
 Tastatur-Ausgabe und DataWedge-Piepton aus).
