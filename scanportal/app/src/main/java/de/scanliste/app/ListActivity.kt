@@ -47,6 +47,7 @@ class ListActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var feedbackText: TextView
     private lateinit var input: EditText
+    private lateinit var addButton: Button
     internal lateinit var tones: Tones
     private var receiverRegistered = false
 
@@ -112,7 +113,8 @@ class ListActivity : AppCompatActivity() {
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
-        findViewById<Button>(R.id.button_add).setOnClickListener { submitManual() }
+        addButton = findViewById(R.id.button_add)
+        addButton.setOnClickListener { submitManual() }
         input.setOnEditorActionListener { _, actionId, event ->
             when {
                 actionId == EditorInfo.IME_ACTION_DONE -> { submitManual(); true }
@@ -221,7 +223,7 @@ class ListActivity : AppCompatActivity() {
                 val typeInfo = if (type != null) " ($type)" else ""
                 val many = ScanList.splitValues(raw).size
                 val hint = if (many > 1 && list.columns.size == 2) " · QR-Code mit $many Werten in einer Zelle – für Paare ⋮ → Multidata-QR-Code" else ""
-                val warn = OtherLists.warning(others, listOf(list.rows[result.row].cells[result.col]))
+                val warn = otherWarning(listOf(list.rows[result.row].cells[result.col]))
                 if (warn != null) {
                     showFeedback("$warn${targetNote()}", error = false, warn = true)
                     tones.error()
@@ -263,7 +265,7 @@ class ListActivity : AppCompatActivity() {
                 val range = if (r.rows == 1) "Zeile ${r.firstRow + 1}" else "Zeilen ${r.firstRow + 1}–${r.firstRow + r.rows}"
                 val skip = if (r.skipped > 0) " · ${r.skipped} schon erfasste übersprungen" else ""
                 val added = (r.firstRow until r.firstRow + r.rows).flatMap { list.rows[it].cells }
-                val warn = OtherLists.warning(others, added)
+                val warn = otherWarning(added)
                 if (warn != null) {
                     showFeedback("${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range · $warn${targetNote()}", error = false, warn = true)
                     tones.error()
@@ -289,6 +291,13 @@ class ListActivity : AppCompatActivity() {
         val head = if (first.length > 60) first.take(57) + "…" else first
         return if (parts.size > 1) "$head … (${parts.size} Werte)" else head
     }
+
+    /**
+     * Warnung „steht auch in Liste …“ – aber nicht für Werte der Soll-Liste: die gehören ausdrücklich
+     * hierher (z. B. Wareneingang gegen die Packliste einer anderen Liste).
+     */
+    private fun otherWarning(values: List<String>): String? =
+        OtherLists.warning(others, if (list.expected.isEmpty()) values else values.filter { it !in list.expected })
 
     /** Zielmenge gerade erreicht → nächste Palette anbieten (nur beim Übergang, nicht bei jedem Scan). */
     private fun offerNext(before: Boolean) {
@@ -331,7 +340,7 @@ class ListActivity : AppCompatActivity() {
         if (!list.targetReached() && !list.closed) parts += "Nächster Scan: $next"
         statusText.text = parts.joinToString(" · ")
         input.isEnabled = !list.closed
-        findViewById<Button>(R.id.button_add).isEnabled = !list.closed
+        addButton.isEnabled = !list.closed
     }
 
     /** Rückmeldeleiste: rot = abgelehnt, orange = übernommen mit Warnung, grün = übernommen. */

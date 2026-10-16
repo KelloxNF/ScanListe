@@ -62,12 +62,13 @@ object Naming {
         val m = if (clock.containsMatchIn(name.trim())) null else numbered.matchEntire(name.trim())
         val prefix = m?.groupValues?.get(1) ?: (name.trim() + " ")
         val digits = m?.groupValues?.get(2)
-        var n = digits?.toLong()?.plus(1) ?: 2L
+        // BigInteger: auch eine lange Nummer (z. B. eine Seriennummer als Listenname) darf nicht überlaufen
+        var n = digits?.toBigInteger()?.inc() ?: java.math.BigInteger.TWO
         while (true) {
             val num = if (digits != null) n.toString().padStart(digits.length, '0') else n.toString()
             val candidate = prefix + num
             if (candidate.lowercase() !in used) return candidate
-            n++
+            n = n.inc()
         }
     }
 
@@ -75,7 +76,8 @@ object Naming {
     fun firstFree(base: String, taken: Collection<String>): String {
         val b = base.trim()
         val pattern = Regex("^" + Regex.escape(b) + "\\s*(\\d+)\\s*$", RegexOption.IGNORE_CASE)
-        val max = taken.mapNotNull { pattern.matchEntire(it.trim())?.groupValues?.get(1)?.toLongOrNull() }.maxOrNull() ?: 0L
+        val max = taken.mapNotNull { pattern.matchEntire(it.trim())?.groupValues?.get(1)?.toBigIntegerOrNull() }.maxOrNull()
+            ?: java.math.BigInteger.ZERO
         return next("$b $max", taken)
     }
 }

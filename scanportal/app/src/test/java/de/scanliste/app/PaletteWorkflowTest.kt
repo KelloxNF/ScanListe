@@ -28,6 +28,9 @@ class PaletteWorkflowTest {
         assertEquals("4711", Naming.base("4711"))
         assertEquals("Palette 8", Naming.firstFree("Palette", listOf("Palette 3", "Palette 7", "Anderes 9")))
         assertEquals("Palette 1", Naming.firstFree("Palette", emptyList()))
+        // Lange Nummer (z. B. Seriennummer als Name) läuft nicht über
+        assertEquals("SN 12345678901234567891234", Naming.next("SN 12345678901234567891233", emptyList()))
+        assertEquals("X 99999999999999999999", Naming.firstFree("X", listOf("X 99999999999999999998")))
     }
 
     @Test fun templateKeepsSettingsButNoValues() {
@@ -85,6 +88,13 @@ class PaletteWorkflowTest {
         assertEquals("Liste;Nr;Seriennummer;PON-SN;EAN", lines[0])
         assertEquals("Palette 1;1;S1;P1;", lines[1])
         assertEquals("Karton;1;S2;;E2", lines[2])
+    }
+
+    @Test fun combinedCsvKeepsDuplicateColumnNames() {
+        val a = ScanList("a", "Doppelt", mutableListOf("SN", "SN"), withTimestamp = false).apply { add("1"); add("2") }
+        val lines = ListReports.combinedCsv(listOf(a)).trim().split("\r\n")
+        assertEquals("Liste;Nr;SN;SN (2)", lines[0])
+        assertEquals("Doppelt;1;1;2", lines[1])
     }
 
     @Test fun dayReportCountsOnlyThatDay() {

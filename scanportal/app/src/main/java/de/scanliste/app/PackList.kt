@@ -244,7 +244,14 @@ object PackList {
             val row = k / 2
             val x = M + gap + col * (QR_SIZE + gap)
             val y = 108f + row * (QR_SIZE + 36f)
-            val m = QRCodeWriter().encode(u.codes[idx], BarcodeFormat.QR_CODE, 0, 0, hints)
+            // Ein einzelner riesiger Wert (z. B. ein ganzer Sammel-QR in einer Zelle) passt evtl. in keinen
+            // QR-Code – dann nur einen Hinweis statt die ganze Packliste scheitern zu lassen.
+            val m = runCatching { QRCodeWriter().encode(u.codes[idx], BarcodeFormat.QR_CODE, 0, 0, hints) }.getOrNull()
+            if (m == null) {
+                c.drawRect(x, y, x + QR_SIZE, y + QR_SIZE, Paint(p.grid).apply { style = Paint.Style.STROKE })
+                c.drawText("Zu viele Daten für einen QR-Code", x + 8f, y + QR_SIZE / 2, p.small)
+                continue
+            }
             val cell = QR_SIZE / m.width
             for (my in 0 until m.height) {
                 var mx = 0

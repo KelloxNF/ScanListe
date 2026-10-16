@@ -13,9 +13,11 @@ import java.util.Locale
  */
 object Csv {
 
-    private val timeFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
+    /** DateTimeFormatter ist – anders als SimpleDateFormat – threadsicher (Sammelexport läuft im Hintergrund). */
+    private val timeFormat = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
 
-    fun formatTime(t: Long): String = if (t > 0) timeFormat.format(Date(t)) else ""
+    fun formatTime(t: Long): String =
+        if (t > 0) timeFormat.format(java.time.Instant.ofEpochMilli(t).atZone(java.time.ZoneId.systemDefault())) else ""
 
     fun build(list: ScanList): String {
         val sb = StringBuilder()

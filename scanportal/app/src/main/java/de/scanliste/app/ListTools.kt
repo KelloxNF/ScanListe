@@ -379,11 +379,16 @@ class ListTools(private val activity: ListActivity) {
         activity.invalidateOptionsMenu()
         activity.updateStatus()
         val partText = if (part.parts > 1) " Teil ${part.part}/${part.parts}" else ""
+        // Schon erfasste Werte, die nicht auf der Packliste stehen, sofort melden
+        val ec = list.expectedColumn
+        val foreign = list.rows.count { r -> r.cells.getOrNull(ec)?.let { it.isNotEmpty() && it !in list.expected } == true }
+        val foreignText = if (foreign > 0) " Achtung: $foreign schon erfasste Werte stehen nicht auf der Packliste." else ""
         val more = if (part.parts > 1 && part.part < part.parts) " Weitere Teile scannen, dann die Geräte." else " Jetzt die Geräte scannen."
         activity.showFeedback(
             if (added == 0) "Packliste ‚${part.title}‘$partText ist schon in der Soll-Liste (${list.expected.size} Werte)."
-            else "✓ Packliste ‚${part.title}‘$partText: $added Werte zur Soll-Liste (jetzt ${list.expected.size}).$more",
+            else "✓ Packliste ‚${part.title}‘$partText: $added Werte zur Soll-Liste (jetzt ${list.expected.size}).$more$foreignText",
             error = false,
+            warn = foreign > 0,
         )
         activity.tones.ok()
         return false

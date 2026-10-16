@@ -23,18 +23,28 @@ object ListReports {
      * (gleich benannte Spalten werden zusammengelegt), Zeitstempel, falls eine Liste einen hat.
      */
     fun combinedCsv(lists: List<ScanList>): String {
-        val columns = LinkedHashSet<String>().apply { lists.forEach { addAll(it.columns) } }.toList()
+        // Gleichnamige Spalten mehrerer Listen zusammenlegen; kommt ein Name in EINER Liste doppelt vor,
+        // bekommt das zweite Vorkommen eine eigene Spalte „Name (2)“ – sonst ginge ein Wert verloren.
+        fun keys(l: ScanList): List<String> {
+            val seen = HashMap<String, Int>()
+            return l.columns.map { c -> val n = (seen[c] ?: 0) + 1; seen[c] = n; if (n == 1) c else "$c ($n)" }
+        }
+        val listKeys = lists.map(::keys)
+        val columns = LinkedHashSet<String>().apply { listKeys.forEach { addAll(it) } }.toList()
+        val index = columns.withIndex().associate { (i, c) -> c to i }
         val withTime = lists.any { it.withTimestamp }
         val sb = StringBuilder()
         sb.append(ExcelCsv.line(listOf("Liste", "Nr") + columns + if (withTime) listOf("Zeitstempel") else emptyList()))
-        for (l in lists) {
-            val pos = l.columns.map { columns.indexOf(it) }
+        lists.forEachIndexed { li, l ->
+            val pos = listKeys[li].map { index.getValue(it) }
             var nr = 0
             for (row in l.rows) {
                 if (row.cells.all { it.isEmpty() }) continue
-                val cells = MutableList(columns.size) { "" }
-                row.cells.forEachIndexed { i, v -> pos.getOrNull(i)?.let { p -> if (cells[p].isEmpty()) cells[p] = v } }
-                val line = mutableListOf(l.name, (++nr).toString()).apply { addAll(cells) }
+                val line = ArrayList<String>(columns.size + 3)
+                line += l.name; line += (++nr).toString()
+                val cells = Array(columns.size) { "" }
+                row.cells.forEachIndexed { i, v -> pos.getOrNull(i)?.let { cells[it] = v } }
+                line.addAll(cells)
                 if (withTime) line += if (l.withTimestamp) Csv.formatTime(row.time) else ""
                 sb.append(ExcelCsv.line(line))
             }
@@ -73,7 +83,8 @@ object ListReports {
         return Day(date, ls, inv)
     }
 
-    private fun clock(t: Long) = SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(t))
+    private val clockFormat = java.time.format.DateTimeFormatter.ofPattern("HH:mm", Locale.GERMANY)
+    private fun clock(t: Long) = clockFormat.format(java.time.Instant.ofEpochMilli(t).atZone(ZoneId.systemDefault()))
     private fun dateText(d: LocalDate) = "%02d.%02d.%04d".format(d.dayOfMonth, d.monthValue, d.year)
 
     fun dayCsv(d: Day): String = buildString {
