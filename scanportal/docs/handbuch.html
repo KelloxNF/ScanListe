@@ -1,0 +1,781 @@
+<title>Scan-Portal Handbuch</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: technisches Handbuch – feste Inhaltsspalte links (Desktop), Funktionen als „Wo · Was · Wie · Warum“-Blätter, Code-Namen in Mono */
+:root {
+  --bg: #f5f6f8;
+  --paper: #ffffff;
+  --ink: #1b2330;
+  --ink-2: #4e5968;
+  --rule: #d7dce4;
+  --brand: #1f3864;      /* Dunkelblau der App-Kopfleiste */
+  --brand-soft: #e6ebf4;
+  --accent: #b97a00;     /* Scanner-Gelb, für den Druck gedämpft */
+  --accent-soft: #fbf1db;
+  --ok: #2e7d32; --bad: #c62828; --warn: #9c5700;
+  --code-bg: #eef1f6;
+  --display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --paper: #1a2029; --ink: #e5e9ef; --ink-2: #a3adbb; --rule: #2f3846;
+    --brand: #9db6e3; --brand-soft: #222c3d; --accent: #f0b43c; --accent-soft: #33290f;
+    --ok: #7cc47f; --bad: #ef8a87; --warn: #f0b43c; --code-bg: #232b37; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --paper: #1a2029; --ink: #e5e9ef; --ink-2: #a3adbb; --rule: #2f3846;
+  --brand: #9db6e3; --brand-soft: #222c3d; --accent: #f0b43c; --accent-soft: #33290f;
+  --ok: #7cc47f; --bad: #ef8a87; --warn: #f0b43c; --code-bg: #232b37; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--body); }
+a { color: var(--brand); }
+a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; background: var(--code-bg); padding: 0.08em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3, h4 { font-family: var(--display); line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 4.5vw, 2.9rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.55rem; font-weight: 700; color: var(--brand); }
+h3 { font-size: 1.15rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.wrap { display: grid; grid-template-columns: 1fr; gap: 0; max-width: 1240px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+@media (min-width: 980px) { .wrap { grid-template-columns: 250px minmax(0, 1fr); gap: 48px; } }
+
+/* Kopf */
+.masthead { padding-block: 40px 28px; border-bottom: 3px solid var(--brand); display: grid; gap: 14px; }
+.eyebrow { font: 600 0.78rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.lead { font-size: 1.12rem; color: var(--ink-2); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 0.92rem; color: var(--ink-2); }
+.facts b { color: var(--ink); font-weight: 600; }
+
+/* Navigation */
+nav.toc { font-size: 0.93rem; }
+nav.toc .inner { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); overflow: auto; padding-block: 24px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.toc ol ol { padding-left: 14px; margin-block: 2px 6px; }
+nav.toc a { display: block; padding: 3px 8px; border-radius: 6px; text-decoration: none; color: var(--ink-2); }
+nav.toc a:hover { background: var(--brand-soft); color: var(--ink); }
+nav.toc a.active { color: var(--brand); font-weight: 600; background: var(--brand-soft); }
+nav.toc .group > a { font-weight: 600; color: var(--ink); }
+.search { display: grid; gap: 6px; margin-bottom: 14px; }
+.search label { font: 600 0.72rem/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.search input { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
+.search .hint { font-size: 0.8rem; color: var(--ink-2); min-height: 1.2em; }
+details.mtoc { display: block; margin-top: 18px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); }
+details.mtoc summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-family: var(--display); }
+details.mtoc .inner { position: static; max-height: none; padding: 0 10px 12px; }
+@media (min-width: 980px) { details.mtoc { display: none; } }
+@media (max-width: 979px) { nav.toc.side { display: none; } }
+
+/* Abschnitte */
+main { min-width: 0; }
+section.chapter { padding-top: 44px; display: grid; gap: 18px; scroll-margin-top: 12px; }
+section.chapter > .chap-head { display: grid; gap: 8px; border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.chap-no { font: 600 0.78rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+
+/* Funktionsblatt: Wo · Was · Wie · Warum */
+article.feature { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; display: grid; gap: 12px; scroll-margin-top: 12px; min-width: 0; }
+article.feature > h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+article.feature > h3 .where { font: 500 0.78rem/1.3 var(--mono); color: var(--ink-2); }
+dl.wwww { margin: 0; display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { dl.wwww { grid-template-columns: 76px minmax(0, 1fr); gap: 10px 16px; } }
+dl.wwww dt { font: 600 0.74rem/1.6 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand); padding-top: 2px; }
+dl.wwww dt.why { color: var(--accent); }
+dl.wwww dd { margin: 0; min-width: 0; display: grid; gap: 8px; }
+dl.wwww dd ul, dl.wwww dd ol { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; max-width: 70ch; }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 0.95rem; max-width: 74ch; }
+
+/* Tabellen */
+.tbl { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--rule); }
+th { font: 600 0.78rem/1.3 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); background: var(--brand-soft); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; border: 1px solid currentColor; white-space: nowrap; }
+.c-ok { color: var(--ok); } .c-bad { color: var(--bad); } .c-warn { color: var(--warn); } .c-open { color: var(--ink-2); }
+
+/* Diagramm */
+figure { margin: 0; display: grid; gap: 8px; }
+figure .scroll { overflow-x: auto; background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 14px; }
+figure svg { display: block; width: 100%; min-width: 640px; height: auto; }
+figcaption { font-size: 0.88rem; color: var(--ink-2); }
+svg .box { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.2; }
+svg .box.hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+svg .t1 { fill: var(--ink); font: 600 13px var(--body); }
+svg .t2 { fill: var(--ink-2); font: 400 11.5px var(--body); }
+svg .ln { fill: none; stroke: var(--ink-2); stroke-width: 1.2; }
+svg .arrowhead { fill: var(--ink-2); }
+
+.flow { display: grid; gap: 10px; counter-reset: step; padding: 0; margin: 0; list-style: none; }
+.flow li { counter-increment: step; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: start; }
+.flow li::before { content: counter(step); font: 700 0.95rem/32px var(--display); text-align: center; width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: var(--paper); }
+.cols2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .cols2 { grid-template-columns: 1fr 1fr; } }
+.cols2 > * { min-width: 0; }
+footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 0.88rem; color: var(--ink-2); }
+.hidden-by-search { display: none !important; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+  <nav class="toc side" aria-label="Inhalt">
+    <div class="inner" id="toc-side"></div>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <span class="eyebrow">Technisches Handbuch · Zebra TC22 · Android</span>
+      <h1>Scan-Portal</h1>
+      <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
+      <div class="facts">
+        <span>Stand <b>Version 1.26</b> · 16.10.2026</span>
+        <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
+        <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
+        <span>Komplett <b>offline</b></span>
+      </div>
+      <details class="mtoc">
+        <summary>Inhalt</summary>
+        <div class="inner" id="toc-mobile"></div>
+      </details>
+    </header>
+
+    <!-- =============================================================== 1 -->
+    <section class="chapter" id="grundlagen" data-title="Grundlagen">
+      <div class="chap-head"><span class="chap-no">Kapitel 1</span><h2>Grundlagen</h2></div>
+      <p>Scan-Portal vereint zwei Werkzeuge in einer App: <b>Scannen</b> füllt beliebige Listen mit Barcodes und gibt sie als CSV für Excel weiter; <b>Inventur</b> führt die Jahresinventur je Kunde vom Import des Systembestands bis zum unterschriebenen Anschreiben. Drei Prinzipien ziehen sich durch die ganze App.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Prinzip</th><th>Was es bedeutet</th><th>Warum</th></tr></thead>
+        <tbody>
+          <tr><td><b>Offline</b></td><td>Keine Internet-Berechtigung, keine Cloud-Sicherung, keine Synchronisation. Daten verlassen das Gerät nur, wenn jemand „Teilen“ oder „Speichern“ wählt.</td><td>Kundendaten (Bestände, Seriennummern) bleiben im Lager; nichts kann unbemerkt abfließen.</td></tr>
+          <tr><td><b>Sofort speichern</b></td><td>Jeder Scan, jede Menge, jede Korrektur wird im selben Moment dauerhaft gespeichert. Es gibt keinen Speichern-Knopf.</td><td>Akku leer, App abgestürzt oder versehentlich geschlossen: Es fehlt höchstens der letzte, gerade laufende Schritt.</td></tr>
+          <tr><td><b>Alles oder nichts</b></td><td>Was nicht vollständig passt, wird ganz abgelehnt und nicht teilweise übernommen: ein QR-Code mit einem fehlerhaften Paar, ein Speichervorgang bei vollem Speicher, das Einspielen einer Sicherung.</td><td>Halbe Zustände (ein zerrissenes Paar, eine halb gespeicherte Datei) sind schwerer zu finden und zu reparieren als eine klare Fehlermeldung.</td></tr>
+        </tbody>
+      </table></div>
+
+      <figure>
+        <div class="scroll">
+          <svg viewBox="0 0 760 400" role="img" aria-label="Bildschirmkarte des Scan-Portals">
+            <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
+            <g class="ln">
+              <path d="M380 76V100H130V124" marker-end="url(#ah)"/>
+              <path d="M380 100H450V124" marker-end="url(#ah)"/>
+              <path d="M130 176V216" marker-end="url(#ah)"/>
+              <path d="M570 150H590" marker-end="url(#ah)"/>
+              <path d="M410 176V196H374V216" marker-end="url(#ah)"/>
+              <path d="M490 176V196H626V216" marker-end="url(#ah)"/>
+              <path d="M580 268V290H374V312" marker-end="url(#ah)"/>
+              <path d="M660 268V312" marker-end="url(#ah)"/>
+            </g>
+            <rect class="box" x="260" y="24" width="240" height="52" rx="8"/>
+            <text class="t1" x="380" y="46" text-anchor="middle">Startseite</text>
+            <text class="t2" x="380" y="64" text-anchor="middle">Kacheln · ⋮ Datensicherung</text>
+            <rect class="box" x="20" y="124" width="220" height="52" rx="8"/>
+            <text class="t1" x="130" y="146" text-anchor="middle">Listen-Übersicht</text>
+            <text class="t2" x="130" y="164" text-anchor="middle">+ neue Liste · lange drücken</text>
+            <rect class="box hot" x="20" y="216" width="220" height="52" rx="8"/>
+            <text class="t1" x="130" y="238" text-anchor="middle">Liste</text>
+            <text class="t2" x="130" y="256" text-anchor="middle">scannen · ⋮ Prüfungen, CSV</text>
+            <rect class="box" x="330" y="124" width="240" height="52" rx="8"/>
+            <text class="t1" x="450" y="146" text-anchor="middle">Inventur-Übersicht</text>
+            <text class="t2" x="450" y="164" text-anchor="middle">alle Kunden · ⋮ Gesamtübersicht</text>
+            <rect class="box" x="590" y="124" width="150" height="52" rx="8"/>
+            <text class="t1" x="665" y="146" text-anchor="middle">Einstellungen</text>
+            <text class="t2" x="665" y="164" text-anchor="middle">Absender · Bereiche</text>
+            <rect class="box" x="264" y="216" width="220" height="52" rx="8"/>
+            <text class="t1" x="374" y="238" text-anchor="middle">Neue Inventur / Kopfdaten</text>
+            <text class="t2" x="374" y="256" text-anchor="middle">Kunde · Stichtag · Import</text>
+            <rect class="box" x="516" y="216" width="224" height="52" rx="8"/>
+            <text class="t1" x="628" y="238" text-anchor="middle">Zählen (Kacheln)</text>
+            <text class="t2" x="628" y="256" text-anchor="middle">Suche · Filter · ⋮ Nachzählung</text>
+            <rect class="box hot" x="264" y="312" width="220" height="52" rx="8"/>
+            <text class="t1" x="374" y="334" text-anchor="middle">Artikel-Bildschirm</text>
+            <text class="t2" x="374" y="352" text-anchor="middle">Bereich · scannen · Ändern</text>
+            <rect class="box" x="516" y="312" width="224" height="52" rx="8"/>
+            <text class="t1" x="628" y="334" text-anchor="middle">Ergebnis &amp; Dokumente</text>
+            <text class="t2" x="628" y="352" text-anchor="middle">PDF · CSV · abschließen</text>
+            <text class="t2" x="478" y="286" text-anchor="middle">Kachel antippen</text>
+            <text class="t2" x="20" y="392">Gelb hinterlegt: Bildschirme, auf denen ein Scan gespeichert wird.</text>
+          </svg>
+        </div>
+        <figcaption>Bildschirmkarte. Auf allen anderen Bildschirmen landet ein Scan nirgends; die App zeigt dann nur einen Hinweis.</figcaption>
+      </figure>
+    </section>
+
+    <!-- =============================================================== 2 -->
+    <section class="chapter" id="scannen" data-title="Scannen (Listen)">
+      <div class="chap-head"><span class="chap-no">Kapitel 2</span><h2>Scannen (Listen)</h2></div>
+
+      <article class="feature" id="listen-anlegen" data-title="Listen anlegen">
+        <h3>Listen anlegen <span class="where">scanliste/MainActivity.kt · dialog_new_list.xml</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Startseite → <b>Scannen</b> → runder <b>+</b>-Knopf.</p></dd>
+          <dt>Was</dt><dd><p>Eine Liste hat einen Namen, eine oder mehrere frei benannte Spalten und optional eine Zeitstempel-Spalte. Optional ist der Modus <b>Multidata-QR-Code</b>.</p></dd>
+          <dt>Wie</dt><dd><ul>
+            <li>Vorgabe-Name ist „Liste“ mit Datum und Uhrzeit, Vorgabe-Spalte „Seriennummer“.</li>
+            <li>Spalten werden an Komma oder Semikolon getrennt, Leerzeichen entfernt.</li>
+            <li>Mit Multidata-QR-Code werden genau zwei Spalten erzwungen (Vorschlag „Seriennummer, PON-SN“) und die Formatprüfung mit „GNXS“ und „Z.“ vorbelegt.</li>
+            <li>Die Liste bekommt eine zufällige Kennung (UUID) und wird sofort gespeichert und geöffnet.</li>
+          </ul></dd>
+          <dt class="why">Warum</dt><dd><p>Die Vorbelegung bei Multidata sorgt dafür, dass ein QR-Code mit vertauschter Reihenfolge sofort auffällt, statt unbemerkt falsch herum in der Liste zu landen.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="erfassen" data-title="Werte erfassen">
+        <h3>Werte erfassen <span class="where">scanliste/ScanList.kt · ListActivity.kt</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In einer geöffneten Liste: Scan-Taste oder Feld „Manuell eingeben“ + „Hinzufügen“.</p></dd>
+          <dt>Was</dt><dd><p>Jeder Wert wird in die nächste freie Zelle geschrieben: bei mehreren Spalten zeilenweise von links nach rechts, dann eine Zeile tiefer. Die Statuszeile zeigt das Ziel („Nächster Scan: Zeile 7 → EAN“), die Zelle ist blau markiert.</p></dd>
+          <dt>Wie</dt><dd><ol>
+            <li>Der Scanner liefert den Wert per Android-Broadcast (siehe <a href="#datawedge">Scanner-Profil</a>).</li>
+            <li>Leerzeichen am Rand werden entfernt, leere Werte ignoriert.</li>
+            <li>Doppelprüfung über eine Hash-Menge aller Werte (sofort, auch bei zehntausenden Einträgen).</li>
+            <li>Formatprüfung, Soll-Liste und Zielmenge, falls eingerichtet.</li>
+            <li>Speichern der ganzen Liste; schlägt das fehl, wird der Wert wieder entfernt.</li>
+            <li>Rückmeldung: Piepton und grüne Leiste „✓ Wert (Barcode-Typ)“, bei Fehlern Fehlerton, Vibration und rote Leiste.</li>
+          </ol></dd>
+          <dt class="why">Warum</dt><dd><p>Die Hash-Menge macht die Duplikatprüfung unabhängig von der Listengröße. Das Zurücknehmen bei Speicherfehler sorgt dafür, dass Bildschirm und Datei nie auseinanderlaufen.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="doppelt" data-title="Doppelte Werte, Rückgängig, Löschen">
+        <h3>Doppelte Werte, Rückgängig, Zeilen löschen <span class="where">ScanList.add · undoScan · removeRow</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Automatisch beim Scan · ⋮ „Letzten Scan rückgängig“ (auch Pfeil oben) · Zeile lange drücken → Löschen.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Ein Wert darf in der ganzen Liste nur einmal vorkommen, über alle Spalten. Bei einem Duplikat springt die Tabelle zur vorhandenen Zeile.</li>
+            <li>Rückgängig nimmt den letzten Scan zurück: einen Einzelwert oder, nach einem Multidata-QR-Code, alle Paare dieses Codes.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Die App merkt sich je Sitzung einen Stapel „was hat der letzte Scan hinzugefügt“ (0 = ein Wert, n = n Zeilen). Ohne gemerkten Scan, etwa nach Neustart oder nach dem Löschen einer Zeile, nimmt sie im Multidata-Modus die letzte ganze Zeile, sonst den letzten Wert. Groß- und Kleinschreibung zählt.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Im Multidata-Modus darf nie ein halbes Paar stehen bleiben; ein halbes Paar würde jeden weiteren QR-Code blockieren. Nach dem Löschen einer Zeile wird der Stapel geleert, weil sich die Zeilennummern verschoben haben.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="multidata" data-title="Multidata-QR-Code">
+        <h3>Multidata-QR-Code <span class="where">ScanList.addPairs · splitValues</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Beim Anlegen per Häkchen oder in einer Liste mit genau 2 Spalten über ⋮ → „Multidata-QR-Code (paarweise)“. Aktiv, wenn oben „Multidata-QR-Code · …“ steht.</p></dd>
+          <dt>Was</dt><dd><p>Ein QR-Code mit mehreren Werten untereinander (z. B. Genexis: Seriennummer und PON-SN im Wechsel) wird paarweise verteilt: 1.+2. Wert → Zeile 1, 3.+4. Wert → Zeile 2 usw. Meldung z. B. „✓ 10 Paare → Zeilen 1–10“.</p></dd>
+          <dt>Wie</dt><dd>
+            <p>Der Scan wird an Zeilenumbrüchen zerlegt. Dann prüft die App in dieser Reihenfolge und übernimmt nur, wenn alles passt:</p>
+            <div class="tbl"><table>
+              <thead><tr><th>Prüfung</th><th>Ergebnis bei Problem</th></tr></thead>
+              <tbody>
+                <tr><td>Nur ein einzelner Wert (auch manuelle Eingabe)</td><td>„Kein Multidata-QR-Code …“, nichts übernommen</td></tr>
+                <tr><td>Ungerade Anzahl Werte</td><td>abgelehnt</td></tr>
+                <tr><td>Ein Wert kommt im QR-Code doppelt vor</td><td>abgelehnt</td></tr>
+                <tr><td>Letzte Zeile der Liste nur halb gefüllt</td><td>abgelehnt, Sprung zur Zeile</td></tr>
+                <tr><td>Paar steht schon genau so in der Liste</td><td>übersprungen und gemeldet</td></tr>
+                <tr><td>Ein Wert steht schon mit anderem Partner in der Liste</td><td>ganzer QR-Code abgelehnt, Sprung zur Zeile</td></tr>
+                <tr><td>Formatprüfung, Reihenfolge vertauscht</td><td>„Reihenfolge im QR-Code vertauscht“</td></tr>
+                <tr><td>Soll-Liste, Zielmenge</td><td>ganzer QR-Code abgelehnt</td></tr>
+              </tbody>
+            </table></div>
+            <p>Alle neuen Paare werden in einem einzigen Speichervorgang geschrieben.</p>
+          </dd>
+          <dt class="why">Warum</dt><dd><p>Seriennummer und PON-SN gehören zwingend zusammen. Jede teilweise Übernahme könnte ein Paar zerreißen und in der CSV falsche Zuordnungen erzeugen. Deshalb gilt hier strikt „alles oder nichts“. Intern heißt die Einstellung weiterhin <code>genexis</code>, damit ältere Listen und Sicherungen kompatibel bleiben.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="format" data-title="Formatprüfung">
+        <h3>Formatprüfung je Spalte <span class="where">ColumnRule · ListTools.editRules</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In der Liste ⋮ → „Formatprüfung …“.</p></dd>
+          <dt>Was</dt><dd><p>Je Spalte „beginnt mit“ (mehrere Anfänge mit Komma, z. B. <code>GNXS, GNXT</code>) und eine feste Länge in Zeichen. Leere Felder = keine Prüfung. Groß-/Kleinschreibung spielt beim Anfang keine Rolle.</p></dd>
+          <dt>Wie</dt><dd><p>Vor dem Eintragen wird der Wert gegen die Regel der Zielspalte geprüft. Beim Multidata-QR-Code prüft die App zusätzlich, ob das Paar andersherum passen würde, und meldet dann gezielt „Reihenfolge vertauscht“. Nach dem Speichern der Regeln zählt sie, wie viele schon erfasste Zeilen nicht passen.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Fängt den häufigsten Scanfehler ab: den falschen Barcode auf dem Etikett (EAN statt Seriennummer, MAC statt PON-SN).</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="ziel" data-title="Zielmenge">
+        <h3>Zielmenge <span class="where">ScanList.target · targetReached</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In der Liste ⋮ → „Zielmenge …“.</p></dd>
+          <dt>Was</dt><dd><p>Anzahl Zeilen (Geräte), z. B. 40 je Palette. Statuszeile „Ziel: 37 von 40“. Ist das Ziel erreicht, ertönt ein Doppelton und die Leiste zeigt „ZIEL ERREICHT (40 von 40)“; weitere Scans werden abgelehnt.</p></dd>
+          <dt>Wie</dt><dd><p>Gezählt werden vollständig gefüllte Zeilen. Ein Multidata-QR-Code, dessen Paare nicht mehr alle hineinpassen, wird ganz abgelehnt („Nur noch 1 von 40 frei …“).</p></dd>
+          <dt class="why">Warum</dt><dd><p>Beim Palettieren fällt eine volle Palette sofort auf, und ein Gerät zu viel landet nicht versehentlich in der falschen Liste.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="soll" data-title="Soll-Liste">
+        <h3>Abgleich mit Soll-Liste <span class="where">ScanList.expected · ListTools.loadExpected</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In der Liste ⋮ → „Soll-Liste laden …“, „Soll-Liste: fehlende anzeigen“, „Soll-Liste entfernen“.</p></dd>
+          <dt>Was</dt><dd><p>Die erwarteten Nummern (z. B. aus einem Lieferschein) werden importiert. Nur diese werden angenommen, alles andere wird abgelehnt („steht nicht in der Soll-Liste“). Fortschritt „Soll-Liste: 37 von 40“; die fehlenden lassen sich anzeigen und als CSV teilen.</p></dd>
+          <dt>Wie</dt><dd><ol>
+            <li>Datei wählen (Excel .xlsx oder CSV); sie wird im Hintergrund gelesen, mit demselben Leser wie der Inventur-Import.</li>
+            <li>Die App zeigt jede Spalte mit Überschrift, Anzahl Werte und Beispiel; du wählst die richtige.</li>
+            <li>Bei mehreren Listenspalten wählst du, welche geprüft wird.</li>
+            <li>Eine erste Zeile ohne Ziffern gilt als Überschrift; doppelte Nummern zählen einmal.</li>
+            <li>Die Soll-Werte werden mit der Liste gespeichert und sind auch nach Neustart aktiv.</li>
+          </ol></dd>
+          <dt class="why">Warum</dt><dd><p>Ersetzt das manuelle Abhaken in Excel: Fremde Geräte fallen beim Scannen auf, fehlende am Ende.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="export" data-title="CSV-Export">
+        <h3>CSV-Export <span class="where">scanliste/Csv.kt · scanportal/Common.kt (ExcelCsv, Share)</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In der Liste ⋮ → „Als CSV speichern …“ oder „CSV teilen (E-Mail, Drive …)“.</p></dd>
+          <dt>Was</dt><dd><p>Datei <code>Listenname_JJJJ-MM-TT_HHMM.csv</code> mit den Spalten Nr, deine Spalten, ggf. Zeitstempel.</p></dd>
+          <dt>Wie</dt><dd><ul>
+            <li>Semikolon als Trenner, UTF-8 mit BOM, Zeilenende CRLF: öffnet per Doppelklick korrekt in deutschem Excel, mit Umlauten.</li>
+            <li>Werte, die mit <code>=</code>, <code>+</code>, <code>-</code> oder <code>@</code> beginnen, bekommen ein Hochkomma; reine Zahlen wie <code>-5</code> bleiben.</li>
+            <li>Beim Speichern wird eine vorhandene Datei vollständig ersetzt; zum Teilen liegt die Datei einen Tag im App-Cache.</li>
+          </ul></dd>
+          <dt class="why">Warum</dt><dd><p>Das Hochkomma verhindert, dass ein manipulierter Barcode in Excel eine Formel ausführt (CSV-Injection).</p></dd>
+        </dl>
+      </article>
+    </section>
+
+    <!-- =============================================================== 3 -->
+    <section class="chapter" id="inventur" data-title="Inventur">
+      <div class="chap-head"><span class="chap-no">Kapitel 3</span><h2>Inventur</h2></div>
+      <ol class="flow" aria-label="Ablauf einer Inventur">
+        <li><p><b>Anlegen</b>: Kopfdaten und Systembestand importieren.</p></li>
+        <li><p><b>Zählen</b>: Kachel antippen, Bereich wählen, scannen, Menge bestätigen.</p></li>
+        <li><p><b>Prüfen</b>: rote Kacheln nachzählen oder korrigieren.</p></li>
+        <li><p><b>Dokumente</b>: Anschreiben, Zählliste, CSV erstellen und weitergeben.</p></li>
+        <li><p><b>Abschließen</b>: Inventur als fertig markieren.</p></li>
+      </ol>
+
+      <article class="feature" id="uebersicht" data-title="Inventur-Übersicht">
+        <h3>Inventur-Übersicht <span class="where">inventur/MainActivity.kt</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Startseite → <b>Inventur</b>.</p></dd>
+          <dt>Was</dt><dd><p>Alle Inventuren aller Kunden, neuester Stichtag oben, je Zeile Stand und „gezählt / Artikel“. Antippen öffnet das Zählen; lange drücken: Zählen, Ergebnis &amp; Dokumente, Kopfdaten, Löschen. ⋮: Gesamtübersicht als CSV teilen/speichern, Einstellungen.</p></dd>
+          <dt>Wie</dt><dd><p>Alle Inventur-Dateien werden im Hintergrund geladen; nur das Ergebnis des neuesten Ladevorgangs wird angezeigt. Die Gesamtübersicht wird bei jedem Export frisch aus den Dateien erzeugt.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Bleibt auch nach Jahren mit vielen Inventuren flüssig; eine gelöschte Inventur kann nicht durch ein älteres Ladeergebnis wieder auftauchen.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="anlegen" data-title="Inventur anlegen">
+        <h3>Inventur anlegen und Kopfdaten <span class="where">EditActivity.kt</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>„＋ Neue Inventur“ · im Zählen ⋮ → „Kopfdaten bearbeiten“.</p></dd>
+          <dt>Was</dt><dd><p>Kunde (Pflicht, bekannte werden vorgeschlagen und füllen die Anschrift), Stichtag, Briefdatum (folgt dem Stichtag, bis es geändert wird), Zähler, Schreiber, Zählort, Uhrzeit von/bis, Blindzählung, Systembestand.</p></dd>
+          <dt>Wie</dt><dd><ul>
+            <li>Uhrzeit „von“ wird beim ersten Scan gesetzt, „bis“ bei jedem weiteren.</li>
+            <li>Erneuter Import ersetzt die Artikel; gezählte Mengen bleiben über die Artikelnummer erhalten. Fehlen gezählte Artikel in der neuen Datei, warnt die App vorher.</li>
+            <li>Wird der Kunde umbenannt, wandern Barcode-Zuordnungen und eigene Bezeichnungen mit, und zwar erst nachdem die Kopfdaten erfolgreich gespeichert sind.</li>
+          </ul></dd>
+          <dt class="why">Warum</dt><dd><p>Ein Korrektur-Import des Systembestands darf nie Zählarbeit vernichten.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="import" data-title="Systembestand importieren">
+        <h3>Systembestand importieren <span class="where">Import.kt (Importer, Xlsx, CsvReader)</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In den Kopfdaten: „Systembestand importieren (Excel oder CSV) …“.</p></dd>
+          <dt>Was</dt><dd><p>Liest das erste Tabellenblatt einer .xlsx-Datei oder eine CSV und erzeugt je Artikelnummer einen Artikel mit Bezeichnung, Soll und Technik-Bestand.</p></dd>
+          <dt>Wie</dt><dd>
+            <div class="tbl"><table>
+              <thead><tr><th>Spalte</th><th>Erkannt an der Überschrift</th><th>Pflicht</th></tr></thead>
+              <tbody>
+                <tr><td>Artikelnummer</td><td>Artikelnummer, Artikelnr, Art.-Nr., ArtNr, SKU, Materialnummer</td><td>ja</td></tr>
+                <tr><td>Bezeichnung</td><td>Artikel, Bezeichnung, Artikelname, Modell, Name</td><td>nein</td></tr>
+                <tr><td>Soll</td><td>Bestand, Menge, Lagerbestand</td><td>ja</td></tr>
+                <tr><td>Technik</td><td>enthält „Technik“</td><td>nein</td></tr>
+              </tbody>
+            </table></div>
+            <ul>
+              <li>Kopfzeile wird in den ersten 15 Zeilen gesucht; ohne Kopfzeile gilt A–D.</li>
+              <li>Excel wird ohne Fremdbibliothek direkt aus der Zip-Struktur gelesen (Shared Strings, Inline-Strings, Zahlen).</li>
+              <li>CSV: Trenner Semikolon, Komma oder Tab automatisch; UTF-8 oder Windows-Zeichensatz.</li>
+              <li>Zahlen: <code>1.234</code> = 1234, <code>12,0</code> = 12, Kommazahlen gerundet.</li>
+              <li>Gleiche Artikelnummer mehrfach (z. B. je Lagerplatz): Mengen werden addiert.</li>
+              <li>Eigene Bezeichnungen dieses Kunden werden automatisch übernommen.</li>
+              <li>Endet die Artikelnummer auf „Ref“, ist es Refware, also ein eigener Artikel.</li>
+            </ul>
+          </dd>
+          <dt class="why">Warum</dt><dd><p>Die Exporte aus dem Lagersystem unterscheiden sich je nach Bericht. Die Erkennung über Überschriften macht die Spaltenreihenfolge egal, und der Import läuft im Hintergrund, damit große Dateien nichts einfrieren.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="kacheln" data-title="Kachel-Übersicht">
+        <h3>Zählen: Kachel-Übersicht <span class="where">CountActivity · OverviewScreen.kt</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Inventur antippen.</p></dd>
+          <dt>Was</dt><dd>
+            <p>Jeder Artikel ist eine Kachel; die Farbe zeigt den Stand:</p>
+            <p><span class="chip c-open">Nicht gezählt</span> <span class="chip c-ok">Stimmt</span> <span class="chip c-bad">Differenz</span> <span class="chip c-warn">Geschätzt</span></p>
+            <p>Suche nach Name oder Artikelnummer; ⋮: Filter anzeigen, Letzte Zählung rückgängig, Differenzen nachzählen, Artikel ohne Bestand zeigen, Kopfdaten, Barcode-Zuordnungen löschen. Unten: „Ergebnis &amp; Dokumente ›“.</p>
+          </dd>
+          <dt>Wie</dt><dd><p>Standardmäßig erscheinen nur Artikel mit Soll ≠ 0 oder mit einer Zählung. Mengen je Artikel und Bereich liegen in einem Zwischenspeicher (Index), der nur bei Änderungen neu aufgebaut wird. Bei Blindzählung heißt „Stimmt“ nur „Gezählt“.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Artikel ohne Bestand würden die Liste unnötig verlängern. Der Index macht Farbe und Status jeder Kachel sofort berechenbar, auch bei tausenden Zählungen.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="scan-inventur" data-title="Scannen in der Inventur">
+        <h3>Scannen in der Inventur <span class="where">CountActivity.onScan</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Nur im Artikel-Bildschirm (Kachel antippen).</p></dd>
+          <dt>Was</dt><dd>
+            <div class="tbl"><table>
+              <thead><tr><th>Gescannt wird …</th><th>Ergebnis</th></tr></thead>
+              <tbody>
+                <tr><td>… ohne geöffneten Artikel</td><td>Nichts gezählt; Hinweis, welche Kachel zu öffnen ist (oder dass der Artikel ausgeblendet ist)</td></tr>
+                <tr><td>… ein QR-Code mit mehreren Werten</td><td>Abgelehnt: „bitte den Barcode des Artikels scannen“</td></tr>
+                <tr><td>… der geöffnete Artikel (Nummer oder zugeordneter Barcode)</td><td>Mit fester Menge sofort gezählt, sonst Fenster „Menge eingeben“</td></tr>
+                <tr><td>… ein anderer bekannter Artikel</td><td>Nicht gezählt: „Barcode gehört zu …“</td></tr>
+                <tr><td>… ein unbekannter Barcode</td><td>Frage, ob er diesem Artikel zugeordnet werden soll</td></tr>
+                <tr><td>… während ein Fenster offen ist</td><td>Nicht gezählt: „Bitte zuerst das offene Fenster schließen.“</td></tr>
+              </tbody>
+            </table></div>
+          </dd>
+          <dt>Wie</dt><dd><p>Eine Menge wird zum gewählten Bereich addiert; eine Minus-Zahl zieht ab, negativ werden kann ein Bereich nicht. Folgen zwei Zählungen desselben Artikels im selben Bereich direkt aufeinander, werden sie zu einem Eintrag zusammengefasst. Barcode-Zuordnungen gelten je Kunde, über alle seine Inventuren.</p></dd>
+          <dt class="why">Warum</dt><dd><p>„Erst antippen, dann scannen“ verhindert Fehlzählungen beim Vorbeiscannen. Das Zusammenfassen hält die Datei auch bei tausenden Einzelscans klein und das Speichern schnell. Gleiche EAN bei Neu- und Refware wird über die Zuordnung zu beiden Artikeln gelöst: Es zählt immer der geöffnete.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="werkzeuge" data-title="Artikel-Werkzeuge">
+        <h3>Werkzeuge im Artikel-Bildschirm <span class="where">ArticleScreen · ArticleSheets · CountSession</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Artikel-Bildschirm, Bereich „ÄNDERN“, sowie „Feste Menge je Scan“.</p></dd>
+          <dt>Was</dt><dd>
+            <div class="tbl"><table>
+              <thead><tr><th>Werkzeug</th><th>Wirkung</th></tr></thead>
+              <tbody>
+                <tr><td>Feste Menge je Scan</td><td>Jeder Scan zählt diese Menge ohne Nachfrage; gilt bis zum Verlassen des Zählens.</td></tr>
+                <tr><td>Bestand stimmt</td><td>Soll in den gewählten Bereich, andere Bereiche leeren, „geschätzt“ aufheben. Warnt rot, wenn schon Mengen erfasst sind.</td></tr>
+                <tr><td>Mengen je Bereich korrigieren</td><td>Setzt Mengen auf feste Werte (leer = nicht gezählt); ungültige Zahl wird gemeldet.</td></tr>
+                <tr><td>Menge geschätzt</td><td>Markierung an/aus, Kachel gelb.</td></tr>
+                <tr><td>Bemerkung</td><td>Erscheint in Zählliste, CSV und Ergebnis.</td></tr>
+                <tr><td>Bezeichnung umbenennen</td><td>Nur der Name; wird für den Kunden gemerkt.</td></tr>
+                <tr><td>Artikel löschen</td><td>Aus dieser Inventur entfernen; kommt beim nächsten Import wieder.</td></tr>
+              </tbody>
+            </table></div>
+          </dd>
+          <dt>Wie</dt><dd><p>Die Zähl-Logik liegt in <code>CountSession</code>, getrennt von der Oberfläche. Jede Änderung wird sofort gespeichert; schlägt das fehl, wird sie im Speicher zurückgenommen (Rollback), die Leiste meldet „Nicht gespeichert – ist der Gerätespeicher voll?“.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Die Trennung macht die Zähl-Logik mit automatischen Tests prüfbar, auch für den Fall „Speicher voll“.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="rueckgaengig-inv" data-title="Rückgängig (Inventur)">
+        <h3>Rückgängig in der Inventur <span class="where">CountSession.undo</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Kachel-Übersicht ⋮ → „Letzte Zählung rückgängig“.</p></dd>
+          <dt>Was</dt><dd><p>Nimmt Scans und eingegebene Mengen dieser Sitzung zurück, in umgekehrter Reihenfolge.</p></dd>
+          <dt>Wie</dt><dd><p>Der Rückgängig-Stapel kennt Artikel, Bereich und Menge. Korrekturen (Bestand stimmt, Korrigieren, Nachzählung, Löschen) entfernen betroffene Einträge aus dem Stapel.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Eine Korrektur ist eine bewusste Entscheidung; „Rückgängig“ soll sie nicht versehentlich aushebeln.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="nachzaehlung" data-title="Nachzählung">
+        <h3>Differenzen nachzählen <span class="where">CountSession.startRecount · Inventory.firstCounts</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Kachel-Übersicht ⋮ → „Differenzen nachzählen …“.</p></dd>
+          <dt>Was</dt><dd><p>Alle Artikel mit Differenz (ohne geschätzte) werden zurückgesetzt; ihre bisherige Gesamtmenge bleibt als <b>1. Zählung</b> erhalten. Filter „Nachzählung (n offen)“ zeigt nur diese Artikel.</p></dd>
+          <dt>Wie</dt><dd><p>Bei einer zweiten Nachzählung bleibt die ursprüngliche 1. Zählung. Sie erscheint im Artikel-Bildschirm, als Spalte der Zählliste, als letzte Spalte der Ergebnis-CSV und im Ergebnis-Bildschirm, nicht im Anschreiben.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Bei einer Prüfung ist nachvollziehbar, dass eine Differenz bestätigt oder korrigiert wurde, und mit welchem ersten Wert.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="dokumente" data-title="Ergebnis und Dokumente">
+        <h3>Ergebnis und Dokumente <span class="where">ResultActivity · Documents.kt (PdfDocument)</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>„Ergebnis &amp; Dokumente ›“ im Zählen oder lange drücken in der Übersicht.</p></dd>
+          <dt>Was</dt><dd>
+            <div class="tbl"><table>
+              <thead><tr><th>Dokument</th><th>Inhalt</th></tr></thead>
+              <tbody>
+                <tr><td>Anschreiben (PDF, A4 hoch)</td><td>Absenderzeile und Anschrift im Fenster nach DIN 5008, Briefdatum, Betreff, Satz mit Datum, Uhrzeit, Zähler, Schreiber; Tabelle Artikel · Menge mit voller Bezeichnung; Unterschriftsblock, Fußzeile. Ohne Soll, Differenz und Technik-Bestand.</td></tr>
+                <tr><td>Zählliste (PDF, A4 quer)</td><td>Kopf mit Unterschriftslinien; Nr · Artikelnummer · Artikel · Soll · je Bereich · (1. Zählung) · Gesamt · Differenz · Status; Zusammenfassung; Bemerkungen; Seitenzahl.</td></tr>
+                <tr><td>Ergebnis (CSV)</td><td>Kunde, Stichtag, Artikelnummer, Artikel, Soll, Technik, je Bereich, Ist, Differenz, Status, Bemerkung, (1. Zählung).</td></tr>
+                <tr><td>Gesamtübersicht (CSV)</td><td>Eine Zeile je Inventur mit Kennzahlen und Ergebnis.</td></tr>
+              </tbody>
+            </table></div>
+          </dd>
+          <dt>Wie</dt><dd><ul>
+            <li>PDFs entstehen mit dem in Android eingebauten PDF-Erzeuger, ohne Fremdbibliothek. Zu lange Namen werden mit „…“ gekürzt, Folgeseiten wiederholen den Tabellenkopf.</li>
+            <li>Option „Artikel mit Bestand 0 … aufführen“ (je Inventur gespeichert): auch ungezählte Soll-0-Artikel, im Anschreiben mit 0, in Zählliste und CSV als „Kein Bestand“.</li>
+            <li>„Teilen“ oder „Auf dem Gerät speichern“; das Speichern übersteht auch einen Neustart der App während der Dateiauswahl.</li>
+            <li>Hinweis vor dem Anschreiben, wenn Artikel ungezählt sind oder der Geschäftsführer fehlt.</li>
+          </ul></dd>
+          <dt class="why">Warum</dt><dd><p>Das Anschreiben bestätigt dem Kunden nur, was gezählt wurde; die Zählliste ist die prüffähige Anlage mit allen Details. Gesamtergebnis: „Offen“ (noch ungezählt), „Differenz“ (auch geschätzte Abweichung) oder „Ohne Differenz“.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="abschluss" data-title="Abschließen">
+        <h3>Inventur abschließen <span class="where">ResultActivity.toggleClosed</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Ergebnis-Bildschirm.</p></dd>
+          <dt>Was</dt><dd><p>Markiert die Inventur als fertig („✓ abgeschlossen“). Fragt nach, wenn noch Artikel ungezählt sind oder Differenzen bestehen. Trägt „Uhrzeit bis“ ein, falls leer.</p></dd>
+          <dt>Wie</dt><dd><p>Jede spätere Zählung oder Mengenkorrektur setzt die Inventur automatisch wieder auf „in Bearbeitung“.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Ein abgeschlossener Stand bleibt nur dann gültig, wenn sich danach nichts geändert hat.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="einstellungen" data-title="Einstellungen">
+        <h3>Einstellungen <span class="where">SettingsActivity · Settings (SharedPreferences „settings“)</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Inventur-Übersicht ⋮ → Einstellungen.</p></dd>
+          <dt>Was</dt><dd><p>Absenderzeile, Geschäftsführer, mehrzeilige Fußzeile, Zählbereiche (Vorgabe <code>Versand,Lager,Außenlager</code>).</p></dd>
+          <dt>Wie</dt><dd><p>Bereiche, in denen schon gezählt wurde, bleiben in dieser Inventur sichtbar, auch wenn sie in den Einstellungen umbenannt werden. Alte Bereichsnamen A/B/C wurden einmalig auf die neuen Namen umgestellt.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Beim Umbenennen eines Bereichs darf keine gezählte Menge aus den Dokumenten verschwinden.</p></dd>
+        </dl>
+      </article>
+    </section>
+
+    <!-- =============================================================== 4 -->
+    <section class="chapter" id="daten" data-title="Daten und Sicherung">
+      <div class="chap-head"><span class="chap-no">Kapitel 4</span><h2>Daten und Sicherung</h2></div>
+
+      <article class="feature" id="speicherorte" data-title="Speicherorte">
+        <h3>Wo die Daten liegen <span class="where">App-Speicher (filesDir)</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Im geschützten Speicher der App; andere Apps und USB haben keinen Zugriff.</p></dd>
+          <dt>Was</dt><dd>
+            <div class="tbl"><table>
+              <thead><tr><th>Datei / Ordner</th><th>Inhalt</th></tr></thead>
+              <tbody>
+                <tr><td><code>lists/&lt;id&gt;.json</code></td><td>eine Scan-Liste mit Zeilen, Einstellungen, Soll-Liste</td></tr>
+                <tr><td><code>lists/meta/&lt;id&gt;.json</code></td><td>Kurzinfo für die Listen-Übersicht</td></tr>
+                <tr><td><code>inventuren/&lt;id&gt;.json</code></td><td>eine Inventur mit Kopfdaten, Artikeln, Zählungen</td></tr>
+                <tr><td><code>barcodes.json</code></td><td>Barcode-Zuordnungen je Kunde</td></tr>
+                <tr><td><code>namen.json</code></td><td>eigene Bezeichnungen je Kunde</td></tr>
+                <tr><td>SharedPreferences <code>settings</code></td><td>Einstellungen</td></tr>
+                <tr><td><code>cache/export/</code></td><td>Dateien zum Teilen, nach einem Tag gelöscht</td></tr>
+              </tbody>
+            </table></div>
+          </dd>
+          <dt>Wie</dt><dd><p>Jede Datei wird sicher geschrieben (<code>SafeFile</code>): erst in eine Hilfsdatei, dann auf den Speicher gezwungen (fsync), dann in einem Schritt umbenannt. Die Kurzinfo einer Liste wird beim Verlassen der Liste geschrieben, nicht bei jedem Scan.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Bei Akkuwechsel oder Absturz mitten im Speichern bleibt immer entweder der alte oder der neue Stand übrig, nie eine halbe Datei. Die Kurzinfo spart je Scan einen Schreibvorgang; ist sie veraltet, wird sie automatisch neu gebaut.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="sicherung" data-title="Datensicherung">
+        <h3>Datensicherung <span class="where">scanportal/Backup.kt · PortalActivity</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Startseite ⋮ → „Datensicherung erstellen …“ / „Datensicherung einspielen …“.</p></dd>
+          <dt>Was</dt><dd><p>Eine Zip-Datei <code>ScanPortal_Sicherung_JJJJ-MM-TT_HHMM.zip</code> mit allen Listen, Inventuren, Zuordnungen, Bezeichnungen und Einstellungen. Einspielen ersetzt alle aktuellen Daten.</p></dd>
+          <dt>Wie</dt><dd><ol>
+            <li>Sichern und Prüfen laufen im Hintergrund.</li>
+            <li>Beim Einspielen wird die Datei zuerst in einen Zwischenordner entpackt und geprüft: Erkennungsdatei vorhanden, nur bekannte Dateinamen, höchstens 300 MB.</li>
+            <li>Rückfrage mit Datum, Version, Anzahl Listen und Inventuren.</li>
+            <li>Erst nach „Ersetzen“ werden die alten Daten beiseitegelegt und die neuen an ihren Platz gebracht; geht dabei etwas schief, kommt der alte Stand zurück.</li>
+          </ol></dd>
+          <dt class="why">Warum</dt><dd><p>Ohne Cloud gingen bei Defekt, Gerätewechsel oder Deinstallation sonst alle Daten verloren. Die strikte Prüfung verhindert, dass eine fremde oder manipulierte Zip-Datei Dateien an falsche Stellen schreibt.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="updates" data-title="Updates">
+        <h3>Updates <span class="where">app/scanportal.keystore · versionCode</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Neue <code>Scan-Portal.apk</code> aus dem GitHub-Release „scanportal-neueste-version“ auf dem TC22 öffnen.</p></dd>
+          <dt>Was</dt><dd><p>Installation über die alte Version; alle Daten bleiben erhalten.</p></dd>
+          <dt>Wie</dt><dd><p>Jede Version ist mit demselben Schlüssel signiert und hat eine höhere Versionsnummer; Android erkennt sie daher als Update. Ausgeliefert wird ein optimierter Release-Build, der nicht per USB auslesbar ist.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Mit einem anderen Schlüssel müsste man deinstallieren, und das löscht alle Daten. <b>Nie vor einem Update deinstallieren.</b></p></dd>
+        </dl>
+      </article>
+    </section>
+
+    <!-- =============================================================== 5 -->
+    <section class="chapter" id="technik" data-title="Technik">
+      <div class="chap-head"><span class="chap-no">Kapitel 5</span><h2>Technik</h2></div>
+
+      <article class="feature" id="datawedge" data-title="Scanner-Profil (DataWedge)">
+        <h3>Scanner-Profil (DataWedge) <span class="where">scanportal/DataWedge.kt</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Automatisch beim Start; in der Zebra-App DataWedge als Profil „ScanPortal“ sichtbar.</p></dd>
+          <dt>Was</dt><dd><p>Scans gehen als Android-Broadcast <code>de.scanportal.app.SCAN</code> an die App. Tastatur-Ausgabe und DataWedge-Piepton sind aus. Aktiv: EAN-13/-8, UPC-A/-E, Code 128, Code 39, Interleaved 2 of 5, QR, Data Matrix, PDF417.</p></dd>
+          <dt>Wie</dt><dd><p>Das Profil wird einmal je App-Start eingerichtet. Nur der gerade sichtbare Bildschirm empfängt Scans; Bildschirme ohne Ziel zeigen einen Hinweis.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Ohne Tastatur-Ausgabe kommt kein Scan doppelt oder in ein falsches Eingabefeld. Die Töne kommen aus der App, damit sie OK und Fehler unterscheiden können.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="offline" data-title="Offline und Datenschutz">
+        <h3>Offline und Datenschutz <span class="where">AndroidManifest.xml · Offline-Prüfung im Build</span></h3>
+        <dl class="wwww">
+          <dt>Was</dt><dd><ul>
+            <li>Internet- und Netzwerk-Berechtigungen werden beim Bauen aktiv entfernt, auch solche, die Bibliotheken mitbringen würden.</li>
+            <li>Android-Cloud-Sicherung und Geräte-Übertragung sind abgeschaltet (<code>allowBackup=false</code>, Regeln schließen alles aus).</li>
+            <li>Das Nachladen von Emoji-Schriften über Google-Dienste ist abgeschaltet.</li>
+            <li>Klartext-Netzverkehr verboten, App nicht debugbar.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Jeder Build untersucht die fertige APK: Findet er eine Netzwerk-Berechtigung, eine aktive Sicherung oder einen debugbaren Build, schlägt er fehl, und es gibt keine neue Version.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Die Offline-Zusage wird bei jeder Version automatisch belegt, statt nur einmal versprochen.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="code" data-title="Code-Aufbau">
+        <h3>Code-Aufbau <span class="where">scanportal/app/src/main/java/de/…</span></h3>
+        <div class="tbl"><table>
+          <thead><tr><th>Datei</th><th>Aufgabe</th><th class="num">Zeilen</th></tr></thead>
+          <tbody>
+            <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/scanportal/app – gemeinsam</th></tr>
+            <tr><td><code>PortalActivity</code></td><td>Startseite mit Kacheln, Datensicherung</td><td class="num">195</td></tr>
+            <tr><td><code>Backup</code></td><td>Sichern, Prüfen, Einspielen</td><td class="num">157</td></tr>
+            <tr><td><code>Common</code></td><td>Maße, Töne, Scan-Hinweis, Excel-CSV, Teilen</td><td class="num">136</td></tr>
+            <tr><td><code>DataWedge</code></td><td>Scanner-Profil</td><td class="num">89</td></tr>
+            <tr><td><code>SafeFile</code></td><td>sicheres Schreiben</td><td class="num">29</td></tr>
+            <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/scanliste/app – Scannen</th></tr>
+            <tr><td><code>ListActivity</code></td><td>Liste, Scan-Verarbeitung, Rückmeldung, Menü</td><td class="num">454</td></tr>
+            <tr><td><code>ScanList</code></td><td>Datenmodell und Regeln: Erfassen, Multidata, Prüfungen, Rückgängig</td><td class="num">300</td></tr>
+            <tr><td><code>MainActivity</code></td><td>Listen-Übersicht, Anlegen, Umbenennen, Löschen</td><td class="num">216</td></tr>
+            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste</td><td class="num">212</td></tr>
+            <tr><td><code>ListStore</code></td><td>Speichern/Laden der Listen</td><td class="num">167</td></tr>
+            <tr><td><code>Csv</code></td><td>CSV-Aufbau und Dateiname</td><td class="num">50</td></tr>
+            <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/inventur/app – Inventur</th></tr>
+            <tr><td><code>Documents</code></td><td>Anschreiben, Zählliste (PDF), Ergebnis-CSV</td><td class="num">351</td></tr>
+            <tr><td><code>CountActivity</code></td><td>verbindet Zähl-Teile, Scan-Routing, Menü</td><td class="num">288</td></tr>
+            <tr><td><code>Store</code></td><td>Speichern/Laden, Barcode- und Namens-Speicher, Einstellungen</td><td class="num">282</td></tr>
+            <tr><td><code>OverviewScreen</code></td><td>Kachel-Übersicht, Suche, Filter</td><td class="num">272</td></tr>
+            <tr><td><code>Import</code></td><td>Excel- und CSV-Leser, Spaltenerkennung</td><td class="num">265</td></tr>
+            <tr><td><code>EditActivity</code></td><td>Neue Inventur / Kopfdaten</td><td class="num">260</td></tr>
+            <tr><td><code>ResultActivity</code></td><td>Ergebnis, Dokumente, Abschluss</td><td class="num">256</td></tr>
+            <tr><td><code>Model</code></td><td>Artikel, Zählungen, Index, Status, Zusammenfassung</td><td class="num">223</td></tr>
+            <tr><td><code>ArticleSheets</code></td><td>Unterfenster: Menge, Korrektur, Umbenennen …</td><td class="num">216</td></tr>
+            <tr><td><code>ArticleScreen</code></td><td>Artikel-Bildschirm</td><td class="num">213</td></tr>
+            <tr><td><code>MainActivity</code></td><td>Inventur-Übersicht</td><td class="num">181</td></tr>
+            <tr><td><code>CountSession</code></td><td>Zähl-Logik ohne Oberfläche (testbar)</td><td class="num">175</td></tr>
+            <tr><td><code>Ui</code></td><td>Bausteine, Farben hell/dunkel</td><td class="num">170</td></tr>
+            <tr><td><code>SettingsActivity</code></td><td>Einstellungen</td><td class="num">57</td></tr>
+          </tbody>
+        </table></div>
+        <p>Kotlin, Android Views ohne Fremd-Frameworks, rund 5.200 Zeilen. Die Inventur-Oberfläche wird im Code aufgebaut, die Listen-Oberfläche aus XML-Layouts.</p>
+      </article>
+
+      <article class="feature" id="qualitaet" data-title="Tests und Build">
+        <h3>Tests und Build <span class="where">.github/workflows/scanportal*.yml</span></h3>
+        <dl class="wwww">
+          <dt>Was</dt><dd>
+            <div class="tbl"><table>
+              <thead><tr><th>Prüfung</th><th>Umfang</th></tr></thead>
+              <tbody>
+                <tr><td>Unit-Tests (61)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, vollständiges Speichern/Laden</td></tr>
+                <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast und eine Datensicherung mit Einspielen</td></tr>
+                <tr><td>Lint</td><td>Androids Prüfwerkzeug bei jeder Änderung</td></tr>
+                <tr><td>Offline-Prüfung</td><td>Berechtigungen, Sicherung und Debug-Status der fertigen APK</td></tr>
+              </tbody>
+            </table></div>
+          </dd>
+          <dt>Wie</dt><dd><p>Bei jeder Änderung baut GitHub Actions die App, führt alle Prüfungen aus und veröffentlicht nur bei Erfolg die neue <code>Scan-Portal.apk</code> im Release „scanportal-neueste-version“.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Ein Fehler, der Daten falsch speichert, soll den Build stoppen, bevor eine APK auf ein Gerät kommt.</p></dd>
+        </dl>
+      </article>
+    </section>
+
+    <!-- =============================================================== 6 -->
+    <section class="chapter" id="hilfe" data-title="Meldungen und Hilfe">
+      <div class="chap-head"><span class="chap-no">Kapitel 6</span><h2>Meldungen und Hilfe</h2></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Meldung / Problem</th><th>Bedeutung und Lösung</th></tr></thead>
+        <tbody>
+          <tr><td>Scan nicht gespeichert – bitte zuerst … öffnen</td><td>Auf diesem Bildschirm landet ein Scan nirgends.</td></tr>
+          <tr><td>✗ Doppelt – … steht schon in Zeile …</td><td>Wert ist schon in der Liste.</td></tr>
+          <tr><td>✗ Kein Multidata-QR-Code …</td><td>Im Multidata-Modus nur QR-Codes mit mehreren Werten.</td></tr>
+          <tr><td>Reihenfolge im QR-Code vertauscht</td><td>Paar passt nur andersherum zur Formatprüfung; QR-Code prüfen.</td></tr>
+          <tr><td>… passt nicht zu … (beginnt mit …)</td><td>Formatprüfung; richtigen Barcode scannen oder Regel anpassen.</td></tr>
+          <tr><td>… steht nicht in der Soll-Liste</td><td>Gerät gehört nicht zum Auftrag.</td></tr>
+          <tr><td>Zielmenge erreicht</td><td>Liste voll; neue Liste anlegen oder Zielmenge erhöhen.</td></tr>
+          <tr><td>Zeile … ist unvollständig</td><td>Fehlenden Wert scannen oder Rückgängig.</td></tr>
+          <tr><td>Erst „…“ antippen, dann scannen.</td><td>Inventur: Kachel des Artikels öffnen.</td></tr>
+          <tr><td>✗ Barcode gehört zu „…“</td><td>Falscher Artikel gescannt.</td></tr>
+          <tr><td>✗ QR-Code mit mehreren Werten …</td><td>Inventur: Artikel-Barcode statt Sammel-QR scannen.</td></tr>
+          <tr><td>Dann wäre die Menge in … negativ</td><td>Minus-Menge zu groß.</td></tr>
+          <tr><td>✗ Nicht gespeichert – ist der Gerätespeicher voll?</td><td>Letzte Eingabe verworfen; Speicher freimachen.</td></tr>
+          <tr><td>Das ist keine Scan-Portal-Sicherung.</td><td>Falsche Datei beim Einspielen gewählt.</td></tr>
+          <tr><td>Kein Piepton</td><td>Benachrichtigungs-Lautstärke erhöhen; die Vibration bei Fehlern bleibt.</td></tr>
+          <tr><td>Update: „App nicht installiert“</td><td><b>Nicht deinstallieren</b>; Datei prüfen und Unterstützung holen.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- =============================================================== 7 -->
+    <section class="chapter" id="versionen" data-title="Versionsgeschichte">
+      <div class="chap-head"><span class="chap-no">Kapitel 7</span><h2>Versionsgeschichte</h2></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1.26</td><td>16.10.2026</td><td>Genexis-Scan heißt Multidata-QR-Code</td></tr>
+          <tr><td class="num">1.24–1.25</td><td>16.10.2026</td><td>Datensicherung im Hintergrund</td></tr>
+          <tr><td class="num">1.23</td><td>16.10.2026</td><td>Datensicherung, Formatprüfung, Soll-Liste, Zielmenge, Nachzählung</td></tr>
+          <tr><td class="num">1.21–1.22</td><td>15.10.2026</td><td>Inventur weist Sammel-QR-Codes ab; Lint-Bereinigung</td></tr>
+          <tr><td class="num">1.16–1.20</td><td>15.10.2026</td><td>Paarweiser QR-Scan, Einzelwerte abgelehnt, Rückgängig ganzer Zeilen</td></tr>
+          <tr><td class="num">1.15</td><td>14.10.2026</td><td>Option Artikel mit Bestand 0 in Dokumenten</td></tr>
+          <tr><td class="num">1.13–1.14</td><td>13.10.2026</td><td>Code aufgeteilt (CountSession), Absturz bei vollem Speicher behoben</td></tr>
+          <tr><td class="num">1.8–1.12</td><td>12.–13.10.2026</td><td>Kachel-Ansicht mit Artikel-Bildschirm, Warnung „Bestand stimmt“</td></tr>
+          <tr><td class="num">1.6–1.7</td><td>12.10.2026</td><td>Feste Menge je Scan, Filter, Artikel löschen; Release-Build</td></tr>
+          <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
+        </tbody>
+      </table></div>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.26, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  // Inhaltsverzeichnis aus den Kapiteln und Funktionsblättern aufbauen
+  var chapters = Array.prototype.slice.call(document.querySelectorAll("section.chapter"));
+  function build(container, withSearch) {
+    if (withSearch) {
+      var s = document.createElement("div");
+      s.className = "search";
+      s.innerHTML = '<label for="q-' + container.id + '">Suchen</label><input id="q-' + container.id + '" type="search" placeholder="z. B. Soll-Liste, PDF, Rückgängig" autocomplete="off"><span class="hint" aria-live="polite"></span>';
+      container.appendChild(s);
+    }
+    var ol = document.createElement("ol");
+    chapters.forEach(function (ch) {
+      var li = document.createElement("li"); li.className = "group";
+      li.innerHTML = '<a href="#' + ch.id + '">' + ch.dataset.title + "</a>";
+      var feats = ch.querySelectorAll("article.feature");
+      if (feats.length) {
+        var sub = document.createElement("ol");
+        feats.forEach(function (f) {
+          var l = document.createElement("li");
+          l.innerHTML = '<a href="#' + f.id + '">' + f.dataset.title + "</a>";
+          sub.appendChild(l);
+        });
+        li.appendChild(sub);
+      }
+      ol.appendChild(li);
+    });
+    container.appendChild(ol);
+  }
+  build(document.getElementById("toc-side"), true);
+  build(document.getElementById("toc-mobile"), true);
+
+  // Suche: blendet Funktionsblätter ohne Treffer aus
+  var feats = Array.prototype.slice.call(document.querySelectorAll("article.feature"));
+  function search(q) {
+    q = q.trim().toLowerCase();
+    var n = 0;
+    feats.forEach(function (f) {
+      var hit = !q || f.textContent.toLowerCase().indexOf(q) >= 0;
+      f.classList.toggle("hidden-by-search", !hit);
+      if (hit) n++;
+    });
+    document.querySelectorAll(".search .hint").forEach(function (h) {
+      h.textContent = q ? n + (n === 1 ? " Funktion gefunden" : " Funktionen gefunden") : "";
+    });
+    document.querySelectorAll(".search input").forEach(function (i) { if (i.value !== q && document.activeElement !== i) i.value = q; });
+  }
+  document.querySelectorAll(".search input").forEach(function (i) {
+    i.addEventListener("input", function () { search(i.value); });
+  });
+
+  // Aktiven Abschnitt im Inhalt markieren
+  var links = {};
+  document.querySelectorAll("#toc-side a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  if ("IntersectionObserver" in window) {
+    var targets = chapters.concat(feats);
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && links[e.target.id]) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
+          links[e.target.id].classList.add("active");
+        }
+      });
+    }, { rootMargin: "-10% 0px -75% 0px" });
+    targets.forEach(function (t) { io.observe(t); });
+  }
+})();
+</script>
