@@ -141,13 +141,15 @@ class PortalActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(0, 1, 0, "Datensicherung erstellen …")
         menu.add(0, 2, 0, "Datensicherung einspielen …")
+        menu.add(0, 3, 0, "Sperrmodus …")
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             1 -> createBackup()
-            2 -> openBackup.launch(arrayOf("*/*"))
+            2 -> Kiosk.requirePin(this, "Datensicherung einspielen") { openBackup.launch(arrayOf("*/*")) }
+            3 -> Kiosk.showSettings(this)
             else -> return super.onOptionsItemSelected(item)
         }
         return true

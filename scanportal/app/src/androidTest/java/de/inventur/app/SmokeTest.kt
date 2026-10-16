@@ -13,6 +13,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -102,6 +103,12 @@ class SmokeTest {
 
         // Bildschirme
         ActivityScenario.launch(PortalActivity::class.java).use { shot("0_portal") }
+        // Sperrmodus: Einstell-Dialog (nicht einschalten – das Anheften würde den Testlauf blockieren)
+        ActivityScenario.launch(PortalActivity::class.java).use { sc ->
+            sc.onActivity { de.scanportal.app.Kiosk.showSettings(it) }
+            shot("0i_sperrmodus")
+        }
+        assertFalse(de.scanportal.app.Kiosk.isOn(ctx))
         ActivityScenario.launch(de.scanliste.app.MainActivity::class.java).use { shot("0_scanliste") }
 
         // Multidata-QR-Code: ein QR-Code mit 3 Paaren landet in 3 Zeilen

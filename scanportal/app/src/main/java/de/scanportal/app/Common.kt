@@ -97,6 +97,7 @@ object Share {
             .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, subject)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        Kiosk.beforeExternal(activity)   // im Sperrmodus kurz lösen, sonst blockiert Android die Ziel-App
         activity.startActivity(Intent.createChooser(send, "Teilen"))
     }
 }

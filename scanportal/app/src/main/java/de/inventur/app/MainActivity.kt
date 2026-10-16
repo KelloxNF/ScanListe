@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }.onFailure { toast("Teilen fehlgeschlagen: ${it.message}") }
             2 -> saveCsv.launch("Inventur_Gesamtuebersicht.csv")
-            3 -> startActivity(Intent(this, SettingsActivity::class.java))
+            3 -> de.scanportal.app.Kiosk.requirePin(this, "Einstellungen") { startActivity(Intent(this, SettingsActivity::class.java)) }
             else -> return super.onOptionsItemSelected(item)
         }
         return true
