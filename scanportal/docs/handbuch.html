@@ -135,7 +135,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <h1>Scan-Portal</h1>
       <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
       <div class="facts">
-        <span>Stand <b>Version 1.28</b> · 16.10.2026</span>
+        <span>Stand <b>Version 1.29</b> · 16.10.2026</span>
         <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
         <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
         <span>Komplett <b>offline</b></span>
@@ -357,8 +357,92 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <li>Am Ende „Gesamt: n Geräte“ und zwei Unterschriftslinien „Gepackt von“ / „Geprüft von“; jede Seite hat eine Fußzeile mit „Seite x von y“.</li>
             <li>Dateiname <code>Packliste_Bezeichnung_JJJJ-MM-TT.pdf</code>. Gezählt werden Zeilen; bei zwei Spalten (Seriennummer, PON-SN) ist eine Zeile ein Gerät.</li>
           </ul></dd>
-          <dt>Wie</dt><dd><p>Androids <code>PdfDocument</code> zeichnet die Seiten, ganz ohne Internet. Erste Seite 36 Zeilen, Folgeseiten 47, Tabellenkopf auf jeder Seite wiederholt. Passen die Unterschriften nicht mehr unter die letzte Zeile, kommen sie auf eine eigene Seite. Die PDF entsteht im Hintergrund aus einer unveränderlichen Kopie der Werte (<code>PackSheet</code>), man kann also weiterscannen. Zu lange Werte werden in der Zelle mit „…“ gekürzt.</p></dd>
+          <dt>Wie</dt><dd><p>Androids <code>PdfDocument</code> zeichnet die Seiten, ganz ohne Internet. Erste Seite 36 Zeilen, Folgeseiten 47, Tabellenkopf auf jeder Seite wiederholt. Passen die Unterschriften nicht mehr unter die letzte Zeile, kommen sie auf eine eigene Seite. Die PDF entsteht im Hintergrund aus einer unveränderlichen Kopie der Werte (<code>PackSheet</code>), man kann also weiterscannen. Zu lange Werte werden in der Zelle mit „…“ gekürzt.</p>
+            <p>Nach den Unterschriften folgt eine Seite <b>„QR-Codes zum Einlesen“</b> (siehe <a href="#wareneingang">Wareneingang</a>): bis zu 6 Codes je Seite, je ca. 7 cm groß, jeder mit höchstens 700 Byte (etwa 25 Genexis-Paare), damit die Module groß genug für den Scanner bleiben. Erzeugt mit der Bibliothek ZXing (nur Rechnen, kein Netz), gezeichnet als Vektor.</p></dd>
           <dt class="why">Warum</dt><dd><p>Mit dem Blatt kann der Empfänger die Palette ohne Datei prüfen, und die Unterschriften zeigen, wer gepackt und kontrolliert hat.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="vorlagen" data-title="Vorlagen">
+        <h3>Vorlagen für Listen <span class="where">scanliste/Templates.kt (ListTemplate, TemplateStore) · OverviewTools.newList</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Speichern: in einer Liste ⋮ → „Als Vorlage speichern …“. Nutzen: Listen-Übersicht → + → „Vorlage: …“. Löschen: Übersicht ⋮ → „Vorlagen …“.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Eine Vorlage merkt sich Spalten, Zeitstempel, Multidata-QR-Code, Formatprüfung und Zielmenge, aber keine Werte und keine Soll-Liste.</li>
+            <li>Neue Listen aus der Vorlage bekommen den nächsten freien Namen, z. B. „Palette 8“, wenn es schon „Palette 7“ gibt.</li>
+            <li>Gibt es keine Vorlage, öffnet + direkt den bisherigen Dialog „Neue Liste“.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Die Vorlagen liegen in <code>vorlagen.json</code>, gehören zur Datensicherung und werden sicher geschrieben (<code>SafeFile</code>). Der Grundname entsteht aus dem Listennamen ohne Nummer am Ende (<code>Naming.base</code>). Eine Vorlage mit gleichem Namen wird ersetzt.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Beim Palettieren hat jede Palette dieselben Einstellungen. Mit der Vorlage ist eine Palette in zwei Tipps angelegt, ohne dass eine Formatprüfung vergessen wird.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="folgepalette" data-title="Nächste Palette">
+        <h3>Nächste Palette anlegen <span class="where">ListTools.nextPalette · Naming.next</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Erscheint von selbst, sobald die Zielmenge erreicht ist; jederzeit über ⋮ → „Nächste Palette anlegen …“.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Neue Liste mit denselben Einstellungen wie die aktuelle (Spalten, Formatprüfung, Zielmenge, Multidata); Name vorgeschlagen mit hochgezählter Nummer: „Palette 4“ → „Palette 5“, „P009“ → „P010“, ohne Zahl „… 2“.</li>
+            <li>Häkchen „Diese Liste abschließen“ (vorbelegt) schließt die volle Palette gleich mit ab.</li>
+            <li>Danach öffnet sich die neue Liste, es kann sofort weitergescannt werden.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Angeboten wird nur beim Übergang „noch nicht voll → voll“, nicht bei jedem weiteren Scan. Vergebene Namen werden übersprungen. Endet der Name auf eine Uhrzeit (Vorgabe „Liste 16.10.2026 09:30“), wird keine Minute hochgezählt, sondern „ 2“ angehängt.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Am Ende einer Palette geht kein Schritt mehr verloren: Abschließen, neue Liste, gleiche Prüfungen – mit einem Tipp.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="abschliessen" data-title="Liste abschließen">
+        <h3>Liste abschließen <span class="where">ScanList.closed · ListTools.toggleClosed</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In der Liste ⋮ → „Liste abschließen“ / „Liste wieder öffnen“; in der Übersicht Liste lange drücken → „Abschließen“ / „Wieder öffnen“.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Eine abgeschlossene Liste nimmt keine Scans an (roter Hinweis, Fehlerton), auch keine Packlisten-Codes. Rückgängig, Zeile löschen und manuelle Eingabe sind gesperrt.</li>
+            <li>Statuszeile „ABGESCHLOSSEN“, in der Übersicht ein ✓ vor dem Namen und „abgeschlossen“.</li>
+            <li>Export, Packliste und Teilen bleiben möglich.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>JSON-Schlüssel <code>closed</code> in der Liste und in der Kurzinfo. Die Sperre sitzt im Datenmodell (<code>add</code>, <code>addPairs</code>), gilt also für Scanner und Handeingabe gleichermaßen.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Eine verpackte Palette darf nicht versehentlich weiter befüllt werden, wenn jemand in der falschen Liste scannt.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="wareneingang" data-title="Wareneingang per QR-Code">
+        <h3>Wareneingang mit dem QR-Code der Packliste <span class="where">scanliste/PackCode.kt · ListTools.applyPackCode</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In einer beliebigen (offenen) Liste den QR-Code von der Packliste scannen.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Die Geräte des Codes werden zur Soll-Liste der Liste („✓ Packliste ‚Palette 3‘: 40 Werte zur Soll-Liste“). Bei mehreren Codes alle scannen; jeder Teil ergänzt die Soll-Liste, doppelt gescannte Teile ändern nichts.</li>
+            <li>Danach die Geräte selbst scannen: Fremde werden abgelehnt, ⋮ → „Soll-Liste: fehlende anzeigen“ zeigt, was fehlt.</li>
+            <li>Der Code wird nie selbst als Wert eingetragen, auch nicht im Multidata-Modus.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Inhalt: erste Zeile <code>SCANPORTAL-PACKLISTE⇥Teil/Anzahl⇥Gerätezahl⇥Bezeichnung</code>, danach je Gerät eine Zeile, Spalten durch Tabulator getrennt. Übernommen wird die 1. Spalte (Seriennummer) bzw. die Spalte einer schon vorhandenen Soll-Liste. Zeilenenden <code>\r\n</code> vom Scanner stören nicht.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Beim Empfänger entfällt das Abtippen oder Laden einer Datei: ein Scan, und die Palette lässt sich Gerät für Gerät gegen die Packliste prüfen.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="sammelexport" data-title="Sammelexport">
+        <h3>Sammelexport mehrerer Listen <span class="where">OverviewTools.combinedExport · ListReports.combinedCsv · PackList.write(parts)</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Listen-Übersicht ⋮ → „Sammelexport …“, Listen ankreuzen.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li><b>CSV teilen:</b> eine Datei mit Spalte „Liste“ vorne, dann Nr und alle Spalten; gleich benannte Spalten werden zusammengelegt, Zeitstempel falls vorhanden.</li>
+            <li><b>Packliste (PDF):</b> Bezeichnung, Kunde, Bemerkung eingeben → Übersichtsseite „Sammel-Packliste“ (Liste und Geräte je Liste, Gesamt, Unterschriften), danach je Liste eine vollständige Packliste mit QR-Codes – zum Beilegen zu jeder Palette.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Laden und Schreiben laufen im Hintergrund. Seitenzahlen zählen über die ganze PDF („Seite 3 von 7“).</p></dd>
+          <dt class="why">Warum</dt><dd><p>Ein Auftrag besteht oft aus mehreren Paletten; der Kunde bekommt eine Datei statt vieler.</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="tagesbericht" data-title="Tagesbericht">
+        <h3>Tagesbericht <span class="where">OverviewTools.dailyReport · ListReports.day / dayPdf / dayCsv</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Listen-Übersicht ⋮ → „Tagesbericht …“, Datum wählen (vorbelegt heute).</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Je Liste die an diesem Tag erfassten Geräte mit Uhrzeit von–bis und Status offen/abgeschlossen, Summe.</li>
+            <li>Je Inventur die Zählungen und gezählten Artikel des Tages.</li>
+            <li>Erst Vorschau, dann „PDF teilen“ oder „CSV teilen“.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Zählt Zeilen, deren Erfassungszeit in den Tag fällt (Zeitzone des Geräts), und Inventur-Zählungen mit Zeitstempel an diesem Tag. Aufeinanderfolgende Scans desselben Artikels im selben Bereich sind in der Inventur eine Zählung.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Für Schichtübergabe und Abrechnung genügt ein Blatt statt vieler Listen.</p></dd>
         </dl>
       </article>
     </section>
@@ -436,7 +520,8 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <p><span class="chip c-open">Nicht gezählt</span> <span class="chip c-ok">Stimmt</span> <span class="chip c-bad">Differenz</span> <span class="chip c-warn">Geschätzt</span></p>
             <p>Suche nach Name oder Artikelnummer; ⋮: Filter anzeigen, Letzte Zählung rückgängig, Differenzen nachzählen, Artikel ohne Bestand zeigen, Kopfdaten, Barcode-Zuordnungen löschen. Unten: „Ergebnis &amp; Dokumente ›“.</p>
           </dd>
-          <dt>Wie</dt><dd><p>Standardmäßig erscheinen nur Artikel mit Soll ≠ 0 oder mit einer Zählung. Mengen je Artikel und Bereich liegen in einem Zwischenspeicher (Index), der nur bei Änderungen neu aufgebaut wird. Bei Blindzählung heißt „Stimmt“ nur „Gezählt“.</p></dd>
+          <dt>Wie</dt><dd><p>Standardmäßig erscheinen nur Artikel mit Soll ≠ 0 oder mit einer Zählung. Mengen je Artikel und Bereich liegen in einem Zwischenspeicher (Index), der nur bei Änderungen neu aufgebaut wird. Bei Blindzählung heißt „Stimmt“ nur „Gezählt“.</p>
+            <p><b>Fortschritt:</b> Unter der Statuszeile („8 von 10 Artikeln gezählt (80 %)“) ein grüner Balken und eine Zeile je Zählbereich, z. B. „Versand 8 · Lager 2 · Außenlager 3“ – so viele Artikel haben dort schon eine Zählung (<code>Inventory.zoneProgress</code>). Bereiche ohne Zählung stehen mit 0 da.</p></dd>
           <dt class="why">Warum</dt><dd><p>Artikel ohne Bestand würden die Liste unnötig verlängern. Der Index macht Farbe und Status jeder Kachel sofort berechenbar, auch bei tausenden Zählungen.</p></dd>
         </dl>
       </article>
@@ -569,6 +654,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
                 <tr><td><code>inventuren/&lt;id&gt;.json</code></td><td>eine Inventur mit Kopfdaten, Artikeln, Zählungen</td></tr>
                 <tr><td><code>barcodes.json</code></td><td>Barcode-Zuordnungen je Kunde</td></tr>
                 <tr><td><code>namen.json</code></td><td>eigene Bezeichnungen je Kunde</td></tr>
+                <tr><td><code>vorlagen.json</code></td><td>Vorlagen für neue Listen</td></tr>
                 <tr><td>SharedPreferences <code>settings</code></td><td>Einstellungen</td></tr>
                 <tr><td><code>cache/export/</code></td><td>Dateien zum Teilen, nach einem Tag gelöscht</td></tr>
               </tbody>
@@ -583,7 +669,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
         <h3>Datensicherung <span class="where">scanportal/Backup.kt · PortalActivity</span></h3>
         <dl class="wwww">
           <dt>Wo</dt><dd><p>Startseite ⋮ → „Datensicherung erstellen …“ / „Datensicherung einspielen …“.</p></dd>
-          <dt>Was</dt><dd><p>Eine Zip-Datei <code>ScanPortal_Sicherung_JJJJ-MM-TT_HHMM.zip</code> mit allen Listen, Inventuren, Zuordnungen, Bezeichnungen und Einstellungen. Einspielen ersetzt alle aktuellen Daten.</p></dd>
+          <dt>Was</dt><dd><p>Eine Zip-Datei <code>ScanPortal_Sicherung_JJJJ-MM-TT_HHMM.zip</code> mit allen Listen, Inventuren, Zuordnungen, Bezeichnungen, Vorlagen und Einstellungen. Einspielen ersetzt alle aktuellen Daten.</p></dd>
           <dt>Wie</dt><dd><ol>
             <li>Sichern und Prüfen laufen im Hintergrund.</li>
             <li>Beim Einspielen wird die Datei zuerst in einen Zwischenordner entpackt und geprüft: Erkennungsdatei vorhanden, nur bekannte Dateinamen, höchstens 300 MB.</li>
@@ -645,23 +731,27 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <tr><td><code>DataWedge</code></td><td>Scanner-Profil</td><td class="num">89</td></tr>
             <tr><td><code>SafeFile</code></td><td>sicheres Schreiben</td><td class="num">29</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/scanliste/app – Scannen</th></tr>
-            <tr><td><code>ListActivity</code></td><td>Liste, Scan-Verarbeitung, Rückmeldung, Menü</td><td class="num">518</td></tr>
-            <tr><td><code>ScanList</code></td><td>Datenmodell und Regeln: Erfassen, Multidata, Prüfungen, Rückgängig</td><td class="num">300</td></tr>
-            <tr><td><code>MainActivity</code></td><td>Listen-Übersicht, Anlegen, Umbenennen, Löschen</td><td class="num">216</td></tr>
-            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste, Packliste</td><td class="num">273</td></tr>
-            <tr><td><code>PackList</code></td><td>Packliste als PDF, Seitenaufteilung, unveränderliche Kopie (PackSheet)</td><td class="num">167</td></tr>
-            <tr><td><code>ListStore</code></td><td>Speichern/Laden der Listen</td><td class="num">173</td></tr>
+            <tr><td><code>ListActivity</code></td><td>Liste, Scan-Verarbeitung, Rückmeldung, Menü</td><td class="num">547</td></tr>
+            <tr><td><code>ScanList</code></td><td>Datenmodell und Regeln: Erfassen, Multidata, Prüfungen, Abschluss, Rückgängig</td><td class="num">306</td></tr>
+            <tr><td><code>MainActivity</code></td><td>Listen-Übersicht, Anlegen, Umbenennen, Abschließen, Löschen</td><td class="num">240</td></tr>
+            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste, Packliste, Abschließen, Folgepalette, Vorlage, Packlisten-Code</td><td class="num">401</td></tr>
+            <tr><td><code>PackList</code></td><td>Packliste und Sammel-Packliste als PDF mit QR-Seiten, Seitenaufteilung</td><td class="num">263</td></tr>
+            <tr><td><code>ListStore</code></td><td>Speichern/Laden der Listen</td><td class="num">177</td></tr>
             <tr><td><code>Csv</code></td><td>CSV-Aufbau und Dateiname</td><td class="num">50</td></tr>
+            <tr><td><code>OverviewTools</code></td><td>Übersicht: Vorlagen, Sammelexport, Tagesbericht</td><td class="num">238</td></tr>
+            <tr><td><code>ListReports</code></td><td>Sammel-CSV, Tagesbericht (Rechnung, PDF, CSV)</td><td class="num">186</td></tr>
+            <tr><td><code>Templates</code></td><td>Vorlagen und Namens-Nummerierung</td><td class="num">145</td></tr>
+            <tr><td><code>PackCode</code></td><td>Inhalt der Packlisten-QR-Codes</td><td class="num">51</td></tr>
             <tr><td><code>OtherLists</code></td><td>Index aller anderen Listen für die Warnung, mit Cache je Datei</td><td class="num">69</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/inventur/app – Inventur</th></tr>
             <tr><td><code>Documents</code></td><td>Anschreiben, Zählliste (PDF), Ergebnis-CSV</td><td class="num">351</td></tr>
             <tr><td><code>CountActivity</code></td><td>verbindet Zähl-Teile, Scan-Routing, Menü</td><td class="num">288</td></tr>
             <tr><td><code>Store</code></td><td>Speichern/Laden, Barcode- und Namens-Speicher, Einstellungen</td><td class="num">282</td></tr>
-            <tr><td><code>OverviewScreen</code></td><td>Kachel-Übersicht, Suche, Filter</td><td class="num">272</td></tr>
+            <tr><td><code>OverviewScreen</code></td><td>Kachel-Übersicht, Fortschritt, Suche, Filter</td><td class="num">287</td></tr>
             <tr><td><code>Import</code></td><td>Excel- und CSV-Leser, Spaltenerkennung</td><td class="num">265</td></tr>
             <tr><td><code>EditActivity</code></td><td>Neue Inventur / Kopfdaten</td><td class="num">260</td></tr>
             <tr><td><code>ResultActivity</code></td><td>Ergebnis, Dokumente, Abschluss</td><td class="num">256</td></tr>
-            <tr><td><code>Model</code></td><td>Artikel, Zählungen, Index, Status, Zusammenfassung</td><td class="num">223</td></tr>
+            <tr><td><code>Model</code></td><td>Artikel, Zählungen, Index, Status, Zusammenfassung, Fortschritt je Bereich</td><td class="num">232</td></tr>
             <tr><td><code>ArticleSheets</code></td><td>Unterfenster: Menge, Korrektur, Umbenennen …</td><td class="num">216</td></tr>
             <tr><td><code>ArticleScreen</code></td><td>Artikel-Bildschirm</td><td class="num">213</td></tr>
             <tr><td><code>MainActivity</code></td><td>Inventur-Übersicht</td><td class="num">181</td></tr>
@@ -680,8 +770,8 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <div class="tbl"><table>
               <thead><tr><th>Prüfung</th><th>Umfang</th></tr></thead>
               <tbody>
-                <tr><td>Unit-Tests (66)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, vollständiges Speichern/Laden</td></tr>
-                <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast, die Warnung „steht auch in Liste …“, Packlisten (eine und mehrere Seiten) und eine Datensicherung mit Einspielen</td></tr>
+                <tr><td>Unit-Tests (72)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, Packlisten-QR, Vorlagen und Namen, Abschließen, Sammel-CSV, Tagesbericht, Fortschritt je Bereich, vollständiges Speichern/Laden</td></tr>
+                <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast, die Warnung „steht auch in Liste …“, Packlisten (eine und mehrere Seiten, Sammel-Packliste), Wareneingang per QR-Code, abgeschlossene Liste, Folgepaletten-Angebot, Tagesbericht und eine Datensicherung mit Einspielen</td></tr>
                 <tr><td>Lint</td><td>Androids Prüfwerkzeug bei jeder Änderung</td></tr>
                 <tr><td>Offline-Prüfung</td><td>Berechtigungen, Sicherung und Debug-Status der fertigen APK</td></tr>
               </tbody>
@@ -702,6 +792,8 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td>Scan nicht gespeichert – bitte zuerst … öffnen</td><td>Auf diesem Bildschirm landet ein Scan nirgends.</td></tr>
           <tr><td>✗ Doppelt – … steht schon in Zeile …</td><td>Wert ist schon in der Liste.</td></tr>
           <tr><td>⚠ Übernommen, aber Achtung: … steht auch in Liste …</td><td>Orange: Wert wurde übernommen, steht aber schon in einer anderen Liste. Prüfen; falls falsch, Rückgängig.</td></tr>
+          <tr><td>Liste ist abgeschlossen – nicht übernommen</td><td>⋮ → „Liste wieder öffnen“ oder die richtige Liste öffnen.</td></tr>
+          <tr><td>✗ Packlisten-Code nicht lesbar oder leer</td><td>QR-Code der Packliste erneut scannen, ggf. Ausdruck prüfen.</td></tr>
           <tr><td>✗ Kein Multidata-QR-Code …</td><td>Im Multidata-Modus nur QR-Codes mit mehreren Werten.</td></tr>
           <tr><td>Reihenfolge im QR-Code vertauscht</td><td>Paar passt nur andersherum zur Formatprüfung; QR-Code prüfen.</td></tr>
           <tr><td>… passt nicht zu … (beginnt mit …)</td><td>Formatprüfung; richtigen Barcode scannen oder Regel anpassen.</td></tr>
@@ -726,6 +818,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <div class="tbl"><table>
         <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
         <tbody>
+          <tr><td class="num">1.29</td><td>16.10.2026</td><td>Vorlagen, Nächste Palette, Liste abschließen, QR-Codes auf der Packliste, Wareneingang per QR-Code, Sammelexport, Tagesbericht, Inventur-Fortschritt je Bereich</td></tr>
           <tr><td class="num">1.28</td><td>16.10.2026</td><td>Fehler- und Leistungsprüfung: Abgleich über alle Listen liest nur geänderte Dateien neu, Packliste aus fester Kopie, PDF-Puffer werden auch bei Fehlern freigegeben</td></tr>
           <tr><td class="num">1.27</td><td>16.10.2026</td><td>Warnung bei Geräten aus anderen Listen; Packliste als PDF</td></tr>
           <tr><td class="num">1.26</td><td>16.10.2026</td><td>Genexis-Scan heißt Multidata-QR-Code</td></tr>
@@ -740,7 +833,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
         </tbody>
       </table></div>
-      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.28, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.29, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
     </section>
   </main>
 </div>
