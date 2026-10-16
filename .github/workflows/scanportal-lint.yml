@@ -5,6 +5,7 @@ on:
   push:
     branches: [scan-portal]
     paths:
+      - "scanportal/**"
       - ".github/workflows/scanportal-lint.yml"
 
 permissions:
