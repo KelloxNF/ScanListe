@@ -90,6 +90,12 @@ class PaletteWorkflowTest {
         assertEquals("Karton;1;S2;;E2", lines[2])
     }
 
+    @Test fun customerSuggestionsRecentFirstWithoutDuplicates() {
+        // zuletzt benutzte zuerst, Inventur-Kunden danach, doppelte (auch anders geschrieben) nur einmal
+        assertEquals(listOf("Testkunde GmbH", "alpha ag", "Beta KG"),
+            CustomerPicker.merge(listOf("Testkunde GmbH", " alpha ag ", ""), listOf("Alpha AG", "Beta KG", "testkunde gmbh")))
+    }
+
     @Test fun combinedCsvKeepsDuplicateColumnNames() {
         val a = ScanList("a", "Doppelt", mutableListOf("SN", "SN"), withTimestamp = false).apply { add("1"); add("2") }
         val lines = ListReports.combinedCsv(listOf(a)).trim().split("\r\n")

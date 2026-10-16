@@ -222,14 +222,14 @@ class ListTools(private val activity: ListActivity) {
         val title = plain("z. B. Palette 3", list.name)
         box.addView(title)
         box.addView(label("Kunde / Empfänger"))
-        val customer = plain("z. B. Musterfirma GmbH", prefs.getString(PREF_CUSTOMER, "") ?: "")
+        val customer = CustomerPicker.field(activity, prefs.getString(PREF_CUSTOMER, "") ?: "")
         box.addView(customer)
         box.addView(label("Bemerkung (optional)"))
         val note = plain("z. B. Lieferschein 4711", "")
         box.addView(note)
         fun info(): PackInfo {
             val c = customer.text.toString().trim()
-            prefs.edit().putString(PREF_CUSTOMER, c).apply()
+            CustomerPicker.remember(activity, c)
             return PackInfo(title.text.toString().trim().ifEmpty { list.name }, c, note.text.toString().trim(), de.inventur.app.Settings.sender(activity))
         }
         AlertDialog.Builder(activity)

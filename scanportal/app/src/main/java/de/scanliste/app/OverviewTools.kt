@@ -169,7 +169,7 @@ class OverviewTools(private val activity: MainActivity) {
         val title = field("z. B. Auftrag 4711", "Sammel-Packliste " + SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(Date()))
         box.addView(title)
         box.addView(label("Kunde / Empfänger"))
-        val customer = field("z. B. Musterfirma GmbH", prefs.getString(ListTools.PREF_CUSTOMER, "") ?: "")
+        val customer = CustomerPicker.field(activity, prefs.getString(ListTools.PREF_CUSTOMER, "") ?: "")
         box.addView(customer)
         box.addView(label("Bemerkung (optional)"))
         val note = field("z. B. Lieferschein 4711", "")
@@ -179,7 +179,7 @@ class OverviewTools(private val activity: MainActivity) {
             .setView(ScrollView(activity).apply { addView(box) })
             .setPositiveButton("Teilen") { _, _ ->
                 val c = customer.text.toString().trim()
-                prefs.edit().putString(ListTools.PREF_CUSTOMER, c).apply()
+                CustomerPicker.remember(activity, c)
                 val sender = Settings.sender(activity)
                 val summary = PackInfo(title.text.toString().trim().ifEmpty { "Sammel-Packliste" }, c, note.text.toString().trim(), sender)
                 background({
