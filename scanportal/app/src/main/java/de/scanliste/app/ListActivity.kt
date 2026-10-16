@@ -252,12 +252,6 @@ class ListActivity : AppCompatActivity() {
 
     private fun targetNote(): String = if (list.targetReached()) " · ZIEL ERREICHT (${list.target} von ${list.target})" else ""
 
-    /** Tabelle und Statuszeile nach einer Änderung neu zeichnen. */
-    internal fun refresh() {
-        adapter.notifyDataSetChanged()
-        updateStatus()
-    }
-
     internal fun persist(): Boolean = try {
         ListStore.save(this, list, withInfo = false)
         infoDirty = true

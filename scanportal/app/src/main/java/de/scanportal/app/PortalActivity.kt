@@ -72,9 +72,21 @@ class PortalActivity : AppCompatActivity() {
     // ---------------------------------------------------------------- Datensicherung
 
     private val saveBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
-        if (uri != null) runCatching {
-            contentResolver.openOutputStream(uri, "wt")?.use { Backup.write(this, it) }
-        }.onSuccess { toast("Datensicherung gespeichert") }.onFailure { toast("Sicherung fehlgeschlagen: ${it.message}") }
+        if (uri != null) background({ contentResolver.openOutputStream(uri, "wt")?.use { Backup.write(this, it) } }) { r ->
+            r.onSuccess { toast("Datensicherung gespeichert") }.onFailure { toast("Sicherung fehlgeschlagen: ${it.message}") }
+        }
+    }
+
+    /**
+     * Sichern und Prüfen laufen im Hintergrund: Bei vielen großen Listen dauert das ein paar Sekunden,
+     * und die Oberfläche soll dabei nicht einfrieren.
+     */
+    private fun <T> background(work: () -> T, done: (Result<T>) -> Unit) {
+        toast("Bitte warten …")
+        Thread {
+            val r = runCatching(work)
+            runOnUiThread { if (!isFinishing && !isDestroyed) done(r) }
+        }.start()
     }
 
     private val openBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -100,9 +112,12 @@ class PortalActivity : AppCompatActivity() {
     }
 
     private fun restore(uri: Uri) {
-        val summary = runCatching {
+        background({
             contentResolver.openInputStream(uri)?.use { Backup.stage(this, it) } ?: throw IllegalArgumentException("Datei nicht lesbar.")
-        }.getOrElse { toast(it.message ?: "Datei nicht lesbar."); return }
+        }) { r -> r.onSuccess { confirmRestore(it) }.onFailure { toast(it.message ?: "Datei nicht lesbar.") } }
+    }
+
+    private fun confirmRestore(summary: Backup.Summary) {
         val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(summary.created))
         AlertDialog.Builder(this)
             .setTitle("Datensicherung einspielen?")
