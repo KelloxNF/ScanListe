@@ -104,8 +104,10 @@ class PortalActivity : AppCompatActivity() {
             .setMessage("Alle Listen, Inventuren, Barcode-Zuordnungen, eigenen Bezeichnungen und Einstellungen in eine Datei. Diese z. B. per USB auf den PC kopieren.")
             .setPositiveButton("Auf dem Gerät speichern …") { _, _ -> saveBackup.launch(backupName()) }
             .setNeutralButton("Teilen …") { _, _ ->
-                runCatching { Share.send(this, backupName(), "application/zip", "Scan-Portal Datensicherung") { Backup.write(this, it) } }
-                    .onFailure { toast("Sicherung fehlgeschlagen: ${it.message}") }
+                background({ Share.prepare(this, backupName()) { Backup.write(this, it) } }) { r ->
+                    r.onSuccess { Share.open(this, it, "application/zip", "Scan-Portal Datensicherung") }
+                        .onFailure { toast("Sicherung fehlgeschlagen: ${it.message}") }
+                }
             }
             .setNegativeButton("Abbrechen", null)
             .show()

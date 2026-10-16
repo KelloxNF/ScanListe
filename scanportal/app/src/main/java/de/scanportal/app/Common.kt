@@ -78,12 +78,19 @@ object Share {
      * Räumt vorher nur Exporte auf, die älter als ein Tag sind – eine Mail-App liest den letzten evtl. noch.
      * Wirft bei einem Fehler (z. B. Speicher voll); der Aufrufer zeigt die Meldung.
      */
-    fun send(activity: Activity, name: String, mime: String, subject: String, write: (OutputStream) -> Unit) {
-        val dir = File(activity.cacheDir, "export").apply { mkdirs() }
+    fun send(activity: Activity, name: String, mime: String, subject: String, write: (OutputStream) -> Unit) =
+        open(activity, prepare(activity, name, write), mime, subject)
+
+    /** Datei im Export-Ordner erzeugen – darf im Hintergrund laufen. */
+    fun prepare(ctx: Context, name: String, write: (OutputStream) -> Unit): File {
+        val dir = File(ctx.cacheDir, "export").apply { mkdirs() }
         val limit = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         dir.listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
-        val file = File(dir, name)
-        file.outputStream().use(write)
+        return File(dir, name).also { f -> f.outputStream().use(write) }
+    }
+
+    /** Teilen-Auswahl für eine mit [prepare] erzeugte Datei öffnen. */
+    fun open(activity: Activity, file: File, mime: String, subject: String) {
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
         val send = Intent(Intent.ACTION_SEND)
             .setType(mime)
