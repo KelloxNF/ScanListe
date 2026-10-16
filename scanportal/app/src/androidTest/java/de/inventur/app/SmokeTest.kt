@@ -178,13 +178,68 @@ class SmokeTest {
         val info = de.scanliste.app.PackInfo("Palette 3", "Testkunde GmbH", "Lieferschein 4711", Settings.sender(ctx))
         val pack = File(shots, "packliste.pdf")
         pack.outputStream().use { de.scanliste.app.PackList.write(de.scanliste.app.PackSheet.of(de.scanliste.app.ListStore.load(ctx, gx.id)!!), info, it) }
-        assertEquals(1, renderPdf(pack, "pdf_packliste"))
+        assertEquals(2, renderPdf(pack, "pdf_packliste"))   // Packliste + Seite mit QR-Code
         val big2 = de.scanliste.app.ScanList("big", "Palette 9", mutableListOf("Seriennummer", "PON-SN"), withTimestamp = false)
         for (i in 1..90) { big2.add("GNXS05DF%04d".format(i)); big2.add("Z.02254%05d".format(i)) }
         big2.add("SEHR-LANGER-WERT-" + "X".repeat(120))   // wird in der Zelle mit „…“ gekürzt
         val packBig = File(shots, "packliste_lang.pdf")
         packBig.outputStream().use { de.scanliste.app.PackList.write(de.scanliste.app.PackSheet.of(big2), info.copy(note = ""), it) }
-        assertEquals(de.scanliste.app.PackList.paginate(91).size, renderPdf(packBig, "pdf_packliste_lang"))
+        val bigCodes = de.scanliste.app.PackCode.encode("Palette 9", de.scanliste.app.PackSheet.of(big2).rows).size
+        assertEquals(de.scanliste.app.PackList.pageCount(91, bigCodes), renderPdf(packBig, "pdf_packliste_lang"))
+
+        // Sammel-Packliste: Übersicht + je Liste eine Packliste
+        val sammel = File(shots, "sammel_packliste.pdf")
+        sammel.outputStream().use {
+            de.scanliste.app.PackList.write(
+                listOf(info to de.scanliste.app.PackSheet.of(de.scanliste.app.ListStore.load(ctx, gx.id)!!),
+                    info.copy(title = "Palette 4") to de.scanliste.app.PackSheet.of(de.scanliste.app.ListStore.load(ctx, pal.id)!!)),
+                info.copy(title = "Auftrag 4711"), it,
+            )
+        }
+        assertTrue(renderPdf(sammel, "pdf_sammel") >= 5)
+
+        // Wareneingang: QR-Code der Packliste scannen → Soll-Liste; danach Gerät scannen
+        val we = de.scanliste.app.ScanList(de.scanliste.app.ListStore.newId(), "Wareneingang Palette 3", mutableListOf("Seriennummer", "PON-SN"),
+            withTimestamp = true, genexis = true)
+        de.scanliste.app.ListStore.save(ctx, we)
+        val code = de.scanliste.app.PackCode.encode("Palette 3", de.scanliste.app.PackSheet.of(de.scanliste.app.ListStore.load(ctx, gx.id)!!).rows).single()
+        val weIntent = Intent(ctx, de.scanliste.app.ListActivity::class.java).putExtra(de.scanliste.app.ListActivity.EXTRA_ID, we.id)
+        ActivityScenario.launch<de.scanliste.app.ListActivity>(weIntent).use {
+            instr.waitForIdleSync(); Thread.sleep(800)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, code))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            shot("0f_wareneingang_soll")
+            assertEquals(5, de.scanliste.app.ListStore.load(ctx, we.id)!!.expected.size)
+            assertEquals(0, de.scanliste.app.ListStore.load(ctx, we.id)!!.rows.size)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
+                .putExtra(DataWedge.EXTRA_DATA, "GNXS05DFA614\nZ.0225460513"))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            assertEquals(1, de.scanliste.app.ListStore.load(ctx, we.id)!!.foundExpected())
+        }
+
+        // Liste abschließen: Scans werden abgelehnt
+        de.scanliste.app.ListStore.load(ctx, pal.id)!!.let { it.closed = true; de.scanliste.app.ListStore.save(ctx, it) }
+        ActivityScenario.launch<de.scanliste.app.ListActivity>(palIntent).use {
+            instr.waitForIdleSync(); Thread.sleep(600)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName).putExtra(DataWedge.EXTRA_DATA, "NEU-123"))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            shot("0g_abgeschlossen")
+            assertEquals(1, de.scanliste.app.ListStore.load(ctx, pal.id)!!.rows.size)
+        }
+
+        // Vorlage und Folgename
+        val tpl = de.scanliste.app.ListTemplate.of(de.scanliste.app.ListStore.load(ctx, gx.id)!!, "Genexis-Palette 5")
+        de.scanliste.app.TemplateStore.put(ctx, tpl)
+        assertEquals("Genexis-Palette 5", de.scanliste.app.TemplateStore.all(ctx).single().name)
+        ActivityScenario.launch(de.scanliste.app.MainActivity::class.java).use { shot("0h_listen_uebersicht") }
+
+        // Tagesbericht von heute
+        val day = de.scanliste.app.ListReports.day(java.time.LocalDate.now(),
+            de.scanliste.app.ListStore.files(ctx).mapNotNull { de.scanliste.app.ListStore.loadFile(it) }, InventoryStore.all(ctx))
+        assertTrue(day.devices >= 6)
+        val dayPdf = File(shots, "tagesbericht.pdf")
+        dayPdf.outputStream().use { de.scanliste.app.ListReports.dayPdf(day, Settings.sender(ctx), it) }
+        assertEquals(1, renderPdf(dayPdf, "pdf_tagesbericht"))
         assertEquals(inv.id, InventoryStore.load(ctx, inv.id)!!.id)
         ActivityScenario.launch(MainActivity::class.java).use { shot("1_uebersicht") }
         ActivityScenario.launch(EditActivity::class.java).use { shot("2_neue_inventur") }

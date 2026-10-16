@@ -28,9 +28,13 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val GENEXIS_COLUMNS = "Seriennummer, PON-SN"
+        const val MENU_EXPORT = 1
+        const val MENU_DAY = 2
+        const val MENU_TEMPLATES = 3
     }
 
     private lateinit var adapter: ListsAdapter
+    private val tools = OverviewTools(this)
     private lateinit var emptyView: TextView
 
     /** Scans in der Übersicht landen nirgends, darauf weisen wir deutlich hin. */
@@ -53,7 +57,22 @@ class MainActivity : AppCompatActivity() {
         recycler.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
         recycler.adapter = adapter
 
-        findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { showCreateDialog() }
+        findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { tools.newList { showCreateDialog() } }
+    }
+
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
+        menu.add(0, MENU_EXPORT, 0, "Sammelexport …")
+        menu.add(0, MENU_DAY, 1, "Tagesbericht …")
+        menu.add(0, MENU_TEMPLATES, 2, "Vorlagen …")
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean = when (item.itemId) {
+        android.R.id.home -> { finish(); true }
+        MENU_EXPORT -> { tools.combinedExport(); true }
+        MENU_DAY -> { tools.dailyReport(); true }
+        MENU_TEMPLATES -> { tools.manageTemplates(); true }
+        else -> super.onOptionsItemSelected(item)
     }
 
     override fun onResume() {
@@ -73,11 +92,11 @@ class MainActivity : AppCompatActivity() {
         emptyView.visibility = if (lists.isEmpty()) View.VISIBLE else View.GONE
     }
 
-    private fun open(id: String) {
+    internal fun open(id: String) {
         startActivity(Intent(this, ListActivity::class.java).putExtra(ListActivity.EXTRA_ID, id))
     }
 
-    private fun trySave(list: ScanList): Boolean = try {
+    internal fun trySave(list: ScanList): Boolean = try {
         ListStore.save(this, list)
         true
     } catch (e: Exception) {
@@ -134,10 +153,15 @@ class MainActivity : AppCompatActivity() {
     private fun showListMenu(list: ListInfo) {
         AlertDialog.Builder(this)
             .setTitle(list.name)
-            .setItems(arrayOf("Umbenennen", "Löschen")) { _, which ->
+            .setItems(arrayOf("Umbenennen", if (list.closed) "Wieder öffnen" else "Abschließen", "Löschen")) { _, which ->
                 when (which) {
                     0 -> showRenameDialog(list)
-                    1 -> confirmDelete(list)
+                    1 -> ListStore.load(this, list.id)?.let { l ->
+                        l.closed = !l.closed
+                        trySave(l)
+                        reload()
+                    }
+                    2 -> confirmDelete(list)
                 }
             }
             .show()
@@ -207,9 +231,9 @@ private class ListsAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val list = items[position]
-        holder.title.text = list.name
+        holder.title.text = if (list.closed) "✓ ${list.name}" else list.name
         holder.subtitle.text = "${list.count} Einträge · Spalten: ${list.columns.joinToString(", ")} · " +
-            "geändert ${Csv.formatTime(list.updated)}"
+            "geändert ${Csv.formatTime(list.updated)}" + if (list.closed) " · abgeschlossen" else ""
         holder.itemView.setOnClickListener { onClick(list) }
         holder.itemView.setOnLongClickListener { onLongClick(list); true }
     }

@@ -1,9 +1,14 @@
 package de.scanliste.app
 
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -25,7 +30,8 @@ class PackSheet(val columns: List<String>, val rows: List<List<String>>) {
 
 /**
  * Packliste als PDF (A4 hoch): Kopf mit Bezeichnung, Kunde, Datum und Anzahl, dann alle Zeilen der Liste,
- * am Ende Gesamtzahl und Unterschriften „Gepackt von“ / „Geprüft von“. Zum Beilegen zur Palette.
+ * am Ende Gesamtzahl und Unterschriften „Gepackt von“ / „Geprüft von“, danach eine Seite mit QR-Codes zum
+ * Einlesen beim Wareneingang. Mehrere Listen ergeben eine Sammel-Packliste mit Übersichtsseite.
  */
 object PackList {
     private const val W = 595f
@@ -36,6 +42,8 @@ object PackList {
     private const val ROW = 15f
     private const val BOTTOM = 772f      // darunter nur noch die Fußzeile
     private const val SIGN = 96f         // Platz für Gesamtzahl und Unterschriften
+    private const val QR_PER_PAGE = 6    // 2 × 3 Codes je Seite
+    private const val QR_SIZE = 200f     // ca. 7 cm – gut lesbar für den Scanner
 
     /** Zeilen pro Seite: (erste Seite, Folgeseiten). Eine Zeile Tabellenkopf ist jeweils abgezogen. */
     fun capacity(): Pair<Int, Int> =
@@ -62,6 +70,23 @@ object PackList {
         return pages
     }
 
+    /** Ein Abschnitt der PDF: eine Packliste (oder die Übersicht einer Sammel-Packliste). */
+    private class Part(
+        val heading: String,
+        val info: PackInfo,
+        val sheet: PackSheet,
+        val devices: Int,
+        val codes: List<String>,
+    )
+
+    private sealed class Page(val part: Part) {
+        class Rows(part: Part, val index: Int, val start: Int, val count: Int, val last: Boolean) : Page(part)
+        class Codes(part: Part, val first: Int, val count: Int) : Page(part)
+    }
+
+    /** Anzahl Seiten einer Packliste mit [rows] Zeilen und [codes] QR-Codes (für Tests). */
+    fun pageCount(rows: Int, codes: Int): Int = paginate(rows).size + (codes + QR_PER_PAGE - 1) / QR_PER_PAGE
+
     private fun paint(size: Float, bold: Boolean = false, color: Int = Color.BLACK, align: Paint.Align = Paint.Align.LEFT) =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = size
@@ -78,90 +103,161 @@ object PackList {
         return one.take(n) + "…"
     }
 
-    fun write(sheet: PackSheet, info: PackInfo, out: OutputStream) {
-        val now = Date()
-        val day = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(now)
-        val stamp = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(now)
-        val rows = sheet.rows
-        val columns = sheet.columns.ifEmpty { listOf("Wert") }
-        val pages = paginate(rows.size)
+    private fun devicesText(n: Int) = "$n ${if (n == 1) "Gerät" else "Geräte"}"
 
+    /** Eine Packliste. */
+    fun write(sheet: PackSheet, info: PackInfo, out: OutputStream) = write(listOf(info to sheet), info, out)
+
+    /**
+     * Eine oder mehrere Packlisten in einer PDF. Bei mehreren kommt vorne eine Übersicht
+     * (Bezeichnung und Anzahl je Liste, Gesamt) mit den Angaben aus [summary].
+     */
+    fun write(parts: List<Pair<PackInfo, PackSheet>>, summary: PackInfo, out: OutputStream) {
+        val units = ArrayList<Part>()
+        if (parts.size > 1) {
+            val total = parts.sumOf { it.second.rows.size }
+            units += Part(
+                "Sammel-Packliste", summary,
+                PackSheet(listOf("Bezeichnung", "Geräte"), parts.map { (i, s) -> listOf(i.title, s.rows.size.toString()) }),
+                total, emptyList(),
+            )
+        }
+        for ((i, s) in parts) units += Part("Packliste", i, s, s.rows.size, PackCode.encode(i.title, s.rows))
+
+        val pages = ArrayList<Page>()
+        for (u in units) {
+            val rowPages = paginate(u.sheet.rows.size)
+            rowPages.forEachIndexed { k, (start, count) -> pages += Page.Rows(u, k, start, count, k == rowPages.lastIndex) }
+            u.codes.indices.chunked(QR_PER_PAGE).forEach { c -> pages += Page.Codes(u, c.first(), c.size) }
+        }
+
+        val stamp = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date())
+        val day = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(Date())
+        val doc = PdfDocument()
+        try {
+            val p = Paints()
+            pages.forEachIndexed { pi, page ->
+                val pdfPage = doc.startPage(PdfDocument.PageInfo.Builder(W.toInt(), H.toInt(), pi + 1).create())
+                val c = pdfPage.canvas
+                when (page) {
+                    is Page.Rows -> drawRows(c, page, day, p)
+                    is Page.Codes -> drawCodes(c, page, p)
+                }
+                c.drawText(fit("${page.part.info.title} · erstellt $stamp", p.small, W - 2 * M - 80f), M, H - 28f, p.small)
+                c.drawText("Seite ${pi + 1} von ${pages.size}", W - M, H - 28f, p.smallRight)
+                doc.finishPage(pdfPage)
+            }
+            doc.writeTo(out)
+        } finally {
+            doc.close()   // auch bei Fehler (z. B. Speicher voll) die Seitenpuffer freigeben
+        }
+    }
+
+    private class Paints {
         val small = paint(8f, color = Color.DKGRAY)
+        val smallRight = paint(8f, color = Color.DKGRAY, align = Paint.Align.RIGHT)
+        val title = paint(20f, bold = true)
+        val sub = paint(13f, bold = true)
+        val text = paint(9.5f)
         val label = paint(9.5f, bold = true)
-        val value = paint(9.5f)
         val head = paint(9f, bold = true, color = Color.WHITE)
-        val cell = paint(9.5f)
+        val headRight = paint(9f, bold = true, color = Color.WHITE, align = Paint.Align.RIGHT)
         val num = paint(9.5f, align = Paint.Align.RIGHT)
+        val total = paint(11f, bold = true)
         val grid = Paint().apply { color = Color.rgb(200, 200, 200); strokeWidth = 0.4f }
         val headFill = Paint().apply { color = Color.rgb(31, 56, 100) }
         val stripe = Paint().apply { color = Color.rgb(243, 245, 248) }
         val line = Paint().apply { color = Color.BLACK; strokeWidth = 0.7f }
+        val black = Paint().apply { color = Color.BLACK; style = Paint.Style.FILL }
+    }
 
+    private fun drawRows(c: Canvas, page: Page.Rows, day: String, p: Paints) {
+        val u = page.part
+        val info = u.info
+        val rows = u.sheet.rows
+        val columns = u.sheet.columns.ifEmpty { listOf("Wert") }
         val nrW = 34f
         val colW = (W - 2 * M - nrW) / columns.size
-
-        val doc = PdfDocument()
-        try {
-        pages.forEachIndexed { pi, (start, count) ->
-            val page = doc.startPage(PdfDocument.PageInfo.Builder(W.toInt(), H.toInt(), pi + 1).create())
-            val c = page.canvas
-            var y: Float
-            if (pi == 0) {
-                if (info.sender.isNotBlank()) c.drawText(fit(info.sender, small, W - 2 * M), M, 40f, small)
-                c.drawText("Packliste", M, 72f, paint(20f, bold = true))
-                val facts = listOf(
-                    "Bezeichnung" to info.title,
-                    "Kunde / Empfänger" to info.customer,
-                    "Datum" to day,
-                    "Anzahl" to "${rows.size} ${if (rows.size == 1) "Gerät" else "Geräte"}",
-                    "Bemerkung" to info.note,
-                ).filter { it.second.isNotBlank() }
-                var fy = 100f
-                for ((k, v) in facts) {
-                    c.drawText(k, M, fy, label)
-                    c.drawText(fit(v, value, W - 2 * M - 120f), M + 120f, fy, value)
-                    fy += 16f
-                }
-                y = FIRST_TABLE
-            } else {
-                y = TOP
+        var y: Float
+        if (page.index == 0) {
+            if (info.sender.isNotBlank()) c.drawText(fit(info.sender, p.small, W - 2 * M), M, 40f, p.small)
+            c.drawText(u.heading, M, 72f, p.title)
+            val facts = listOf(
+                "Bezeichnung" to info.title,
+                "Kunde / Empfänger" to info.customer,
+                "Datum" to day,
+                "Anzahl" to devicesText(u.devices),
+                "Bemerkung" to info.note,
+            ).filter { it.second.isNotBlank() }
+            var fy = 100f
+            for ((k, v) in facts) {
+                c.drawText(k, M, fy, p.label)
+                c.drawText(fit(v, p.text, W - 2 * M - 120f), M + 120f, fy, p.text)
+                fy += 16f
             }
-            if (count > 0 || start == 0) {
-                // Tabellenkopf
-                c.drawRect(M, y - 11f, W - M, y + 4f, headFill)
-                c.drawText("Nr.", M + nrW - 4f, y, Paint(head).apply { textAlign = Paint.Align.RIGHT })
-                columns.forEachIndexed { i, name ->
-                    c.drawText(fit(name, head, colW - 8f), M + nrW + i * colW + 6f, y, head)
-                }
-                y += ROW
-                for (k in 0 until count) {
-                    val r = rows[start + k]
-                    if ((start + k) % 2 == 1) c.drawRect(M, y - 11f, W - M, y + 4f, stripe)
-                    c.drawText((start + k + 1).toString(), M + nrW - 4f, y, num)
-                    r.forEachIndexed { i, v ->
-                        if (i < columns.size) c.drawText(fit(v, cell, colW - 8f), M + nrW + i * colW + 6f, y, cell)
-                    }
-                    c.drawLine(M, y + 4f, W - M, y + 4f, grid)
-                    y += ROW
-                }
-            }
-            if (pi == pages.lastIndex) {
-                y += 22f
-                c.drawText("Gesamt: ${rows.size} ${if (rows.size == 1) "Gerät" else "Geräte"}", M, y, paint(11f, bold = true))
-                y += 48f
-                val half = (W - 2 * M - 30f) / 2
-                c.drawLine(M, y, M + half, y, line)
-                c.drawLine(M + half + 30f, y, W - M, y, line)
-                c.drawText("Gepackt von (Name, Datum)", M, y + 12f, small)
-                c.drawText("Geprüft von (Name, Datum)", M + half + 30f, y + 12f, small)
-            }
-            c.drawText(fit("${info.title} · erstellt $stamp", small, W - 2 * M - 80f), M, H - 28f, small)
-            c.drawText("Seite ${pi + 1} von ${pages.size}", W - M, H - 28f, paint(8f, color = Color.DKGRAY, align = Paint.Align.RIGHT))
-            doc.finishPage(page)
+            y = FIRST_TABLE
+        } else {
+            y = TOP
         }
-        doc.writeTo(out)
-        } finally {
-            doc.close()   // auch bei Fehler (z. B. Speicher voll) die Seitenpuffer freigeben
+        if (page.count > 0 || page.start == 0) {
+            c.drawRect(M, y - 11f, W - M, y + 4f, p.headFill)
+            c.drawText("Nr.", M + nrW - 4f, y, p.headRight)
+            columns.forEachIndexed { i, name -> c.drawText(fit(name, p.head, colW - 8f), M + nrW + i * colW + 6f, y, p.head) }
+            y += ROW
+            for (k in 0 until page.count) {
+                val i = page.start + k
+                if (i % 2 == 1) c.drawRect(M, y - 11f, W - M, y + 4f, p.stripe)
+                c.drawText((i + 1).toString(), M + nrW - 4f, y, p.num)
+                rows[i].forEachIndexed { col, v ->
+                    if (col < columns.size) c.drawText(fit(v, p.text, colW - 8f), M + nrW + col * colW + 6f, y, p.text)
+                }
+                c.drawLine(M, y + 4f, W - M, y + 4f, p.grid)
+                y += ROW
+            }
+        }
+        if (page.last) {
+            y += 22f
+            c.drawText("Gesamt: ${devicesText(u.devices)}", M, y, p.total)
+            y += 48f
+            val half = (W - 2 * M - 30f) / 2
+            c.drawLine(M, y, M + half, y, p.line)
+            c.drawLine(M + half + 30f, y, W - M, y, p.line)
+            c.drawText("Gepackt von (Name, Datum)", M, y + 12f, p.small)
+            c.drawText("Geprüft von (Name, Datum)", M + half + 30f, y + 12f, p.small)
+        }
+    }
+
+    private fun drawCodes(c: Canvas, page: Page.Codes, p: Paints) {
+        val u = page.part
+        c.drawText("QR-Codes zum Einlesen – ${fit(u.info.title, p.sub, W - 2 * M - 160f)}", M, 60f, p.sub)
+        c.drawText("Wareneingang: in Scan-Portal eine Liste öffnen und alle Codes dieser Seite(n) scannen.", M, 78f, p.text)
+        c.drawText("Die Geräte werden zur Soll-Liste; danach die Geräte selbst scannen.", M, 90f, p.text)
+        val gap = (W - 2 * M - 2 * QR_SIZE) / 3
+        val hints = mapOf(
+            EncodeHintType.CHARACTER_SET to "UTF-8",
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+            EncodeHintType.MARGIN to 0,
+        )
+        for (k in 0 until page.count) {
+            val idx = page.first + k
+            val col = k % 2
+            val row = k / 2
+            val x = M + gap + col * (QR_SIZE + gap)
+            val y = 108f + row * (QR_SIZE + 36f)
+            val m = QRCodeWriter().encode(u.codes[idx], BarcodeFormat.QR_CODE, 0, 0, hints)
+            val cell = QR_SIZE / m.width
+            for (my in 0 until m.height) {
+                var mx = 0
+                while (mx < m.width) {
+                    if (!m.get(mx, my)) { mx++; continue }
+                    var end = mx
+                    while (end < m.width && m.get(end, my)) end++   // zusammenhängende Module als ein Rechteck
+                    c.drawRect(x + mx * cell, y + my * cell, x + end * cell, y + (my + 1) * cell, p.black)
+                    mx = end
+                }
+            }
+            val n = u.codes[idx].count { it == '\n' }
+            c.drawText("Teil ${idx + 1} von ${u.codes.size} · ${devicesText(n)}", x, y + QR_SIZE + 14f, p.small)
         }
     }
 }

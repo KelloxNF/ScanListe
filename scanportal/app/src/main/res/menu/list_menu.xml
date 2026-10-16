@@ -24,6 +24,21 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_close"
+        android:title="Liste abschließen"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_next"
+        android:title="Nächste Palette anlegen …"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_template"
+        android:title="Als Vorlage speichern …"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_genexis"
         android:checkable="true"
         android:title="Multidata-QR-Code (paarweise)"

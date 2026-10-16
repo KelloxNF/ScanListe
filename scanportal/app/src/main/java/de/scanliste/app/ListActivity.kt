@@ -174,9 +174,17 @@ class ListActivity : AppCompatActivity() {
 
     /** Gibt true zurück, wenn der Wert übernommen wurde. */
     private fun handleValue(raw: String, type: String?): Boolean {
+        // QR-Code einer Packliste: wird zur Soll-Liste (Wareneingang), nie selbst ein Wert
+        if (PackCode.isPackCode(raw)) return tools.applyPackCode(raw)
+        if (list.closed) {
+            showFeedback("✗ ${ScanList.CLOSED}", error = true)
+            tones.error()
+            return false
+        }
+        val before = list.targetReached()
         if (list.genexis) {
             val parts = ScanList.splitValues(raw)
-            if (parts.size > 1) return handlePairs(parts)
+            if (parts.size > 1) return handlePairs(parts, before)
             if (parts.isEmpty()) return false
             // Multidata-QR-Code nimmt nur QR-Codes mit mehreren Werten – ein Einzelwert würde ein Paar zerreißen
             showFeedback("✗ Kein Multidata-QR-Code: \"${short(raw)}\" ist nur ein einzelner Wert. Nicht übernommen.", error = true)
@@ -223,13 +231,14 @@ class ListActivity : AppCompatActivity() {
                 }
                 scrollToEnd()
                 updateStatus()
+                offerNext(before)
                 true
             }
         }
     }
 
     /** Multidata-QR-Code: QR-Code mit mehreren Werten paarweise auf Zeilen verteilen. */
-    private fun handlePairs(parts: List<String>): Boolean {
+    private fun handlePairs(parts: List<String>, before: Boolean): Boolean {
         return when (val r = list.addPairs(parts)) {
             is PairResult.Rejected -> {
                 showFeedback("✗ ${r.message}", error = true)
@@ -264,6 +273,7 @@ class ListActivity : AppCompatActivity() {
                 }
                 scrollToEnd()
                 updateStatus()
+                offerNext(before)
                 return true
             }
         }
@@ -278,6 +288,11 @@ class ListActivity : AppCompatActivity() {
         val first = parts.firstOrNull() ?: raw.trim()
         val head = if (first.length > 60) first.take(57) + "…" else first
         return if (parts.size > 1) "$head … (${parts.size} Werte)" else head
+    }
+
+    /** Zielmenge gerade erreicht → nächste Palette anbieten (nur beim Übergang, nicht bei jedem Scan). */
+    private fun offerNext(before: Boolean) {
+        if (!before && list.targetReached()) recycler.post { if (!isFinishing) tools.nextPalette(auto = true) }
     }
 
     private fun pushUndo(entry: Int) {
@@ -307,13 +322,16 @@ class ListActivity : AppCompatActivity() {
         val (r, c) = list.nextSlot()
         val next = if (list.columns.size > 1) "Zeile ${r + 1} → ${list.columns[c]}" else "Zeile ${r + 1}"
         val parts = mutableListOf<String>()
+        if (list.closed) parts += "ABGESCHLOSSEN"
         if (list.genexis) parts += "Multidata-QR-Code"
         list.target?.let { parts += "Ziel: ${list.completeRows()} von $it" }
         if (list.expected.isNotEmpty()) parts += "Soll-Liste: ${list.foundExpected()} von ${list.expected.size}"
         if (list.rules.any { it != null }) parts += "Formatprüfung"
         parts += "${list.valueCount()} Einträge"
-        if (!list.targetReached()) parts += "Nächster Scan: $next"
+        if (!list.targetReached() && !list.closed) parts += "Nächster Scan: $next"
         statusText.text = parts.joinToString(" · ")
+        input.isEnabled = !list.closed
+        findViewById<Button>(R.id.button_add).isEnabled = !list.closed
     }
 
     /** Rückmeldeleiste: rot = abgelehnt, orange = übernommen mit Warnung, grün = übernommen. */
@@ -334,8 +352,14 @@ class ListActivity : AppCompatActivity() {
 
     // ---------- Bearbeiten ----------
 
+    /** Abgeschlossene Liste: nichts ändern, Hinweis zeigen. */
+    private fun blockedByClose(): Boolean {
+        if (list.closed) Toast.makeText(this, "Liste ist abgeschlossen – ⋮ → „Liste wieder öffnen“", Toast.LENGTH_SHORT).show()
+        return list.closed
+    }
+
     private fun confirmDeleteRow(pos: Int) {
-        if (pos !in list.rows.indices) return
+        if (pos !in list.rows.indices || blockedByClose()) return
         val values = list.rows[pos].cells.filter { it.isNotEmpty() }.joinToString(", ")
         AlertDialog.Builder(this)
             .setTitle("Zeile ${pos + 1} löschen?")
@@ -352,6 +376,7 @@ class ListActivity : AppCompatActivity() {
     }
 
     private fun undo() {
+        if (blockedByClose()) return
         val message = when (val u = list.undoScan(undoStack.removeLastOrNull())) {
             null -> { Toast.makeText(this, "Liste ist leer", Toast.LENGTH_SHORT).show(); return }
             is Undone.Rows -> "↶ Entfernt: ${u.count} ${if (u.count == 1) "Zeile" else "Zeilen"}"
@@ -420,6 +445,7 @@ class ListActivity : AppCompatActivity() {
             isVisible = list.columns.size == 2   // ein Paar = genau eine Zeile mit zwei Spalten
             isChecked = list.genexis
         }
+        menu.findItem(R.id.action_close)?.title = if (list.closed) "Liste wieder öffnen" else "Liste abschließen"
         val hasExpected = list.expected.isNotEmpty()
         menu.findItem(R.id.action_expected_missing)?.isVisible = hasExpected
         menu.findItem(R.id.action_expected_clear)?.isVisible = hasExpected
@@ -432,6 +458,9 @@ class ListActivity : AppCompatActivity() {
         R.id.action_export -> { exportLauncher.launch(Csv.fileName(list)); true }
         R.id.action_share -> { share(); true }
         R.id.action_packlist -> { tools.packList(); true }
+        R.id.action_close -> { tools.toggleClosed(); true }
+        R.id.action_next -> { tools.nextPalette(auto = false); true }
+        R.id.action_template -> { tools.saveTemplate(); true }
         R.id.action_genexis -> { toggleGenexis(); true }
         R.id.action_rules -> { tools.editRules(); true }
         R.id.action_target -> { tools.editTarget(); true }

@@ -261,8 +261,136 @@ class ListTools(private val activity: ListActivity) {
         }.start()
     }
 
+    // ------------------------------------------------------------ Abschließen, Folgepalette, Vorlage
+
+    fun toggleClosed() {
+        list.closed = !list.closed
+        if (!activity.persist()) { list.closed = !list.closed; return }
+        activity.invalidateOptionsMenu()
+        activity.updateStatus()
+        activity.showFeedback(
+            if (list.closed) "Liste abgeschlossen – weitere Scans werden abgelehnt. ⋮ → „Liste wieder öffnen“ zum Weiterscannen."
+            else "Liste wieder geöffnet – Scans werden wieder angenommen.",
+            error = false,
+        )
+    }
+
+    /**
+     * Neue Liste mit denselben Einstellungen (Spalten, Formatprüfung, Zielmenge, Multidata) und
+     * hochgezählter Nummer im Namen. [auto] = von selbst angeboten, weil die Zielmenge erreicht ist.
+     */
+    fun nextPalette(auto: Boolean) {
+        val taken = ListStore.infos(activity).map { it.name }
+        val box = form()
+        box.addView(label(
+            (if (auto) "Zielmenge erreicht. " else "") +
+                "Neue Liste mit denselben Einstellungen (Spalten, Formatprüfung" +
+                (list.target?.let { ", Zielmenge $it" } ?: "") + (if (list.genexis) ", Multidata-QR-Code" else "") + ").", 0,
+        ).apply { alpha = 0.8f })
+        box.addView(label("Name"))
+        val name = plain("z. B. Palette 5", Naming.next(list.name, taken))
+        box.addView(name)
+        val close = android.widget.CheckBox(activity).apply {
+            text = "Diese Liste abschließen"
+            isChecked = !list.closed
+            isEnabled = !list.closed
+            setPadding(0, activity.dp(8), 0, 0)
+        }
+        box.addView(close)
+        AlertDialog.Builder(activity)
+            .setTitle(if (auto) "Nächste Palette anlegen?" else "Nächste Palette")
+            .setView(ScrollView(activity).apply { addView(box) })
+            .setPositiveButton("Anlegen") { _, _ ->
+                val n = name.text.toString().trim().ifEmpty { Naming.next(list.name, taken) }
+                val next = ListTemplate.of(list, "").create(ListStore.newId(), n)
+                try {
+                    ListStore.save(activity, next)
+                } catch (e: Exception) {
+                    toast("Speichern fehlgeschlagen – ist der Gerätespeicher voll?"); return@setPositiveButton
+                }
+                if (close.isChecked && !list.closed) {
+                    list.closed = true
+                    if (!activity.persist()) list.closed = false
+                }
+                activity.startActivity(
+                    android.content.Intent(activity, ListActivity::class.java).putExtra(ListActivity.EXTRA_ID, next.id),
+                )
+                activity.finish()
+            }
+            .setNegativeButton(if (auto) "Nicht jetzt" else "Abbrechen", null)
+            .show()
+    }
+
+    fun saveTemplate() {
+        val existing = TemplateStore.all(activity).map { it.name }
+        val box = form()
+        box.addView(label("Speichert Spalten, Zeitstempel, Multidata-QR-Code, Formatprüfung und Zielmenge (ohne Werte und Soll-Liste). Neue Listen heißen dann „${Naming.base(list.name)} 1“, „… 2“ usw.", 0).apply { alpha = 0.7f })
+        box.addView(label("Name der Vorlage"))
+        val f = plain("z. B. Genexis-Palette 40", Naming.base(list.name) + (list.target?.let { " $it Stück" } ?: ""))
+        box.addView(f)
+        AlertDialog.Builder(activity)
+            .setTitle("Als Vorlage speichern")
+            .setView(box)
+            .setPositiveButton("Speichern") { _, _ ->
+                val n = f.text.toString().trim().ifEmpty { Naming.base(list.name) }
+                runCatching { TemplateStore.put(activity, ListTemplate.of(list, n)) }
+                    .onSuccess {
+                        activity.showFeedback(
+                            "Vorlage „$n“ " + (if (existing.any { it.equals(n, true) }) "aktualisiert" else "gespeichert") +
+                                " – in der Listen-Übersicht über + auswählbar",
+                            error = false,
+                        )
+                    }
+                    .onFailure { toast("Speichern fehlgeschlagen – ist der Gerätespeicher voll?") }
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    // ------------------------------------------------------------ Wareneingang: QR-Code einer Packliste
+
+    /** Werte eines Packlisten-QR-Codes zur Soll-Liste hinzufügen. Gibt immer false zurück (kein Listenwert). */
+    fun applyPackCode(raw: String): Boolean {
+        val part = PackCode.decode(raw)
+        if (part == null || part.rows.isEmpty()) {
+            activity.showFeedback("✗ Packlisten-Code nicht lesbar oder leer.", error = true)
+            activity.tones.error()
+            return false
+        }
+        if (list.closed) {
+            activity.showFeedback("✗ ${ScanList.CLOSED}", error = true)
+            activity.tones.error()
+            return false
+        }
+        val wasEmpty = list.expected.isEmpty()
+        val col = if (wasEmpty) 0 else list.expectedColumn
+        val values = part.rows.mapNotNull { r -> r.getOrNull(col)?.takeIf { it.isNotEmpty() } }
+        val old = list.expected.toList()
+        val before = old.size
+        val oldColumn = list.expectedColumn
+        list.expected.addAll(values)
+        if (wasEmpty) list.expectedColumn = 0
+        if (!activity.persist()) {
+            list.expected.clear(); list.expected.addAll(old)
+            list.expectedColumn = oldColumn
+            return false
+        }
+        val added = list.expected.size - before
+        activity.invalidateOptionsMenu()
+        activity.updateStatus()
+        val partText = if (part.parts > 1) " Teil ${part.part}/${part.parts}" else ""
+        val more = if (part.parts > 1 && part.part < part.parts) " Weitere Teile scannen, dann die Geräte." else " Jetzt die Geräte scannen."
+        activity.showFeedback(
+            if (added == 0) "Packliste ‚${part.title}‘$partText ist schon in der Soll-Liste (${list.expected.size} Werte)."
+            else "✓ Packliste ‚${part.title}‘$partText: $added Werte zur Soll-Liste (jetzt ${list.expected.size}).$more",
+            error = false,
+        )
+        activity.tones.ok()
+        return false
+    }
+
     companion object {
-        private const val PREF_CUSTOMER = "pack_customer"
+        internal const val PREF_CUSTOMER = "pack_customer"
 
         fun packFileName(title: String): String {
             val safe = title.replace(Regex("[^A-Za-z0-9ÄÖÜäöüß_-]+"), "_").trim('_').ifEmpty { "Liste" }

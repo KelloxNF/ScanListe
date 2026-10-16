@@ -72,6 +72,8 @@ class OverviewScreen(private val host: CountActivity) {
     private var visible: List<Article> = emptyList()
 
     private lateinit var statusLine: TextView
+    private lateinit var progressBar: android.widget.ProgressBar
+    private lateinit var zoneLine: TextView
     private lateinit var search: EditText
     private lateinit var filterInfo: TextView
     private lateinit var chipsScroll: HorizontalScrollView
@@ -88,6 +90,15 @@ class OverviewScreen(private val host: CountActivity) {
         val root = vbox()
         statusLine = text(sizeSp = 13f, bold = true, color = Colors.appSub).apply { setPadding(dp(14), dp(8), dp(14), 0) }
         root.addView(statusLine)
+        // Fortschritt: Balken für alle Artikel, darunter je Zählbereich
+        progressBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            progressTintList = android.content.res.ColorStateList.valueOf(Colors.ok)
+        }
+        root.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(10)).apply {
+            setMargins(dp(14), dp(6), dp(14), dp(2))
+        })
+        zoneLine = text(sizeSp = 12f, color = Colors.appSub).apply { setPadding(dp(14), 0, dp(14), 0) }
+        root.addView(zoneLine)
 
         // Suche (Pille mit Lupe und ✕)
         val pill = FrameLayout(this).apply { background = rounded(Colors.cardBg, 22f, Colors.line) }
@@ -216,8 +227,12 @@ class OverviewScreen(private val host: CountActivity) {
         filterInfo.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
         filterInfo.text = "Filter aktiv: ${visible.size} von ${base.size} Artikeln"
         val done = base.count { inv.counted(it.sku) != null }
-        statusLine.text = "Stichtag ${Dates.display(inv.stichtag)} · $done von ${base.size} Artikeln gezählt" +
+        val pct = if (base.isEmpty()) 0 else done * 100 / base.size
+        statusLine.text = "Stichtag ${Dates.display(inv.stichtag)} · $done von ${base.size} Artikeln gezählt ($pct %)" +
             (if (inv.blind) " · Blindzählung" else "") + (if (inv.closed) " · abgeschlossen" else "")
+        progressBar.max = maxOf(base.size, 1)
+        progressBar.progress = done
+        zoneLine.text = inv.zoneProgress(session.zones, base).joinToString(" · ") { (z, n) -> "$z $n" }
     }
 
     /** Tastatur der Suche schließen, sonst verdeckt sie den Artikel-Bildschirm. */

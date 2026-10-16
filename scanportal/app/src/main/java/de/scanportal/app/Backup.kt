@@ -16,11 +16,11 @@ import java.util.zip.ZipOutputStream
 object Backup {
     private const val MARKER = "scanportal-sicherung.json"
     private val DIRS = listOf("lists", "inventuren")
-    private val FILES = listOf("barcodes.json", "namen.json")
+    private val FILES = listOf("barcodes.json", "namen.json", "vorlagen.json")
     private const val PREFS = "settings"
 
     /** Nur diese Namen werden beim Einspielen angenommen – Schutz vor manipulierten Zip-Dateien. */
-    private val allowed = Regex("^(lists/(meta/)?[A-Za-z0-9-]+\\.json|inventuren/[A-Za-z0-9-]+\\.json|barcodes\\.json|namen\\.json|scanportal-sicherung\\.json)$")
+    private val allowed = Regex("^(lists/(meta/)?[A-Za-z0-9-]+\\.json|inventuren/[A-Za-z0-9-]+\\.json|barcodes\\.json|namen\\.json|vorlagen\\.json|scanportal-sicherung\\.json)$")
     private const val MAX_BYTES = 300L * 1024 * 1024
 
     /** Inhalt einer Sicherung, für die Rückfrage vor dem Einspielen. */

@@ -136,6 +136,15 @@ class Inventory(
 
     fun hasCount(sku: String) = idx().containsKey(sku)
 
+    /**
+     * Fortschritt je Zählbereich: wie viele der [list]-Artikel dort schon eine Zählung haben.
+     * Bereiche ohne Zählung bleiben mit 0 drin, damit man sieht, wo noch niemand war.
+     */
+    fun zoneProgress(zones: List<String>, list: List<Article>): List<Pair<String, Int>> {
+        val m = idx()
+        return zones.map { z -> z to list.count { a -> m[a.sku]?.containsKey(z) == true } }
+    }
+
     /** Gezählte Gesamtmenge oder null, wenn der Artikel noch nicht gezählt wurde. */
     fun counted(sku: String): Int? = idx()[sku]?.values?.sum()
 

@@ -82,8 +82,12 @@ class ScanList(
     var expectedColumn: Int = 0,
     /** Zielmenge in Zeilen (z. B. 40 Geräte je Palette); null = unbegrenzt. */
     var target: Int? = null,
+    /** Abgeschlossen (z. B. Palette verpackt): nimmt keine Scans mehr an, bis sie wieder geöffnet wird. */
+    var closed: Boolean = false,
 ) {
     companion object {
+        const val CLOSED = "Liste ist abgeschlossen – nicht übernommen. Zum Weiterscannen ⋮ → „Liste wieder öffnen“."
+
         /** Teilt den Inhalt eines Scans in einzelne Werte (eine Zeile je Wert). */
         fun splitValues(raw: String): List<String> =
             raw.split('\n', '\r').map { it.trim() }.filter { it.isNotEmpty() }
@@ -147,6 +151,7 @@ class ScanList(
     fun add(raw: String): AddResult {
         val value = raw.trim()
         if (value.isEmpty()) return AddResult.Empty
+        if (closed) return AddResult.Rejected(CLOSED)
         if (value in values) {
             val (r, c) = find(value) ?: (0 to 0)
             return AddResult.Duplicate(r, c)
@@ -173,6 +178,7 @@ class ScanList(
      * auseinandergerissen wird. Paare, die schon vollständig in der Liste stehen, werden übersprungen.
      */
     fun addPairs(values: List<String>): PairResult {
+        if (closed) return PairResult.Rejected(CLOSED)
         if (columns.size < 2) return PairResult.Rejected("Multidata-QR-Code braucht 2 Spalten.")
         if (values.size % 2 != 0) {
             return PairResult.Rejected("${values.size} Werte im QR-Code – ungerade Anzahl, Paare unvollständig. Nichts übernommen.")

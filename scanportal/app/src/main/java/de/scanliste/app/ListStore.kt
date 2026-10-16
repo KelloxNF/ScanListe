@@ -15,6 +15,7 @@ data class ListInfo(
     val columns: List<String>,
     val count: Int,
     val updated: Long,
+    val closed: Boolean = false,
 )
 
 /**
@@ -81,7 +82,7 @@ object ListStore {
 
     private fun writeAtomic(target: File, text: String) = SafeFile.write(target, text)
 
-    private fun infoOf(list: ScanList) = ListInfo(list.id, list.name, list.columns.toList(), list.valueCount(), list.updated)
+    private fun infoOf(list: ScanList) = ListInfo(list.id, list.name, list.columns.toList(), list.valueCount(), list.updated, list.closed)
 
     private fun writeMeta(ctx: Context, list: ScanList) {
         val o = JSONObject().apply {
@@ -90,6 +91,7 @@ object ListStore {
             put("columns", JSONArray(list.columns))
             put("count", list.valueCount())
             put("updated", list.updated)
+            put("closed", list.closed)
         }
         writeAtomic(metaFile(ctx, list.id), o.toString())
     }
@@ -97,7 +99,7 @@ object ListStore {
     private fun readMeta(f: File): ListInfo? = runCatching {
         val o = JSONObject(f.readText())
         val cols = o.getJSONArray("columns").let { a -> List(a.length()) { a.getString(it) } }
-        ListInfo(o.getString("id"), o.getString("name"), cols, o.getInt("count"), o.getLong("updated"))
+        ListInfo(o.getString("id"), o.getString("name"), cols, o.getInt("count"), o.getLong("updated"), o.optBoolean("closed"))
     }.getOrNull()
 
     private fun rebuildMeta(ctx: Context, f: File): ListInfo? {
@@ -125,6 +127,7 @@ object ListStore {
             put("expectedColumn", list.expectedColumn)
         }
         list.target?.let { put("target", it) }
+        if (list.closed) put("closed", true)
         put("created", list.created)
         put("updated", list.updated)
         put("rows", JSONArray().apply {
@@ -168,6 +171,7 @@ object ListStore {
             },
             expectedColumn = o.optInt("expectedColumn"),
             target = if (o.has("target")) o.optInt("target") else null,
+            closed = o.optBoolean("closed"),
         )
     }
 }
