@@ -135,7 +135,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <h1>Scan-Portal</h1>
       <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
       <div class="facts">
-        <span>Stand <b>Version 1.30</b> · 16.10.2026</span>
+        <span>Stand <b>Version 1.31</b> · 16.10.2026</span>
         <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
         <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
         <span>Komplett <b>offline</b></span>
@@ -777,7 +777,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
               </tbody>
             </table></div>
           </dd>
-          <dt>Wie</dt><dd><p>Bei jeder Änderung baut GitHub Actions die App, führt alle Prüfungen aus und veröffentlicht nur bei Erfolg die neue <code>Scan-Portal.apk</code> im Release „scanportal-neueste-version“.</p></dd>
+          <dt>Wie</dt><dd><p>Bei jeder Änderung baut GitHub Actions die App (Abstürze und fehlgeschlagene Tests erscheinen direkt als Anmerkung im Lauf), führt alle Prüfungen aus und veröffentlicht nur bei Erfolg die neue <code>Scan-Portal.apk</code> im Release „scanportal-neueste-version“.</p></dd>
           <dt class="why">Warum</dt><dd><p>Ein Fehler, der Daten falsch speichert, soll den Build stoppen, bevor eine APK auf ein Gerät kommt.</p></dd>
         </dl>
       </article>
@@ -818,6 +818,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <div class="tbl"><table>
         <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
         <tbody>
+          <tr><td class="num">1.31</td><td>16.10.2026</td><td>Absturz beim Angebot „Nächste Palette“ unter Android 10–12 behoben (vom Emulator-Test gefunden)</td></tr>
           <tr><td class="num">1.30</td><td>16.10.2026</td><td>Fehler- und Leistungsprüfung: threadsichere Zeitformate, lange Nummern im Listennamen, Sammel-CSV mit doppelten Spaltennamen, QR-Fehler abgefangen, keine Warnung für Werte der Soll-Liste, Hinweis auf fremde Werte beim Packlisten-Code</td></tr>
           <tr><td class="num">1.29</td><td>16.10.2026</td><td>Vorlagen, Nächste Palette, Liste abschließen, QR-Codes auf der Packliste, Wareneingang per QR-Code, Sammelexport, Tagesbericht, Inventur-Fortschritt je Bereich</td></tr>
           <tr><td class="num">1.28</td><td>16.10.2026</td><td>Fehler- und Leistungsprüfung: Abgleich über alle Listen liest nur geänderte Dateien neu, Packliste aus fester Kopie, PDF-Puffer werden auch bei Fehlern freigegeben</td></tr>
@@ -834,7 +835,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
         </tbody>
       </table></div>
-      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.30, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.31, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
     </section>
   </main>
 </div>
