@@ -330,5 +330,19 @@ class SmokeTest {
         val after = InventoryStore.load(ctx, inv.id)!!
         assertEquals(433, after.firstCounts["TST20003096"])
         assertEquals(null, after.counted("TST20003096"))
+
+        // Sperrmodus wirklich einschalten: App wird angeheftet (Ergebnis nur protokolliert – je nach
+        // Android-Version fragt das System erst nach), danach wieder lösen und ausschalten
+        de.scanportal.app.Kiosk.enable(ctx, "1234")
+        de.scanportal.app.Kiosk.relockWanted = true
+        assertTrue(de.scanportal.app.Kiosk.checkPin(ctx, "1234"))
+        assertFalse(de.scanportal.app.Kiosk.checkPin(ctx, "4321"))
+        ActivityScenario.launch(PortalActivity::class.java).use { sc ->
+            instr.waitForIdleSync(); Thread.sleep(2000)
+            shot("0j_angeheftet")
+            File(shots, "kiosk.txt").writeText("pinned=" + de.scanportal.app.Kiosk.isPinned(ctx))
+            sc.onActivity { runCatching { it.stopLockTask() } }
+        }
+        de.scanportal.app.Kiosk.disable(ctx)
     }
 }

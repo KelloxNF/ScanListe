@@ -32,7 +32,7 @@ object Kiosk {
     private const val KEY_SALT = "pin_salt"
 
     /** Beim App-Start und nach dem Teilen soll wieder angeheftet werden – nicht bei jedem Bildschirmwechsel. */
-    @Volatile private var relockWanted = true
+    @Volatile internal var relockWanted = true
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -57,12 +57,12 @@ object Kiosk {
         return hash(pin, p.getString(KEY_SALT, "") ?: "") == h
     }
 
-    private fun enable(ctx: Context, pin: String) {
+    internal fun enable(ctx: Context, pin: String) {
         val salt = newSalt()
         prefs(ctx).edit().putBoolean(KEY_ON, true).putString(KEY_SALT, salt).putString(KEY_HASH, hash(pin, salt)).commit()
     }
 
-    private fun disable(ctx: Context) {
+    internal fun disable(ctx: Context) {
         prefs(ctx).edit().clear().commit()
     }
 
@@ -92,6 +92,7 @@ object Kiosk {
     private fun pinField(activity: Activity, hint: String) = EditText(activity).apply {
         this.hint = hint
         inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        typeface = android.graphics.Typeface.DEFAULT   // Passwortfelder nutzen sonst eine Schreibmaschinenschrift
         maxLines = 1
     }
 
