@@ -4,9 +4,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import android.text.InputType
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -136,7 +134,7 @@ object Kiosk {
             .setView(box(
                 activity,
                 note(activity, "Die App wird festgeheftet: Home, Zurück zur Übersicht und andere Apps sind gesperrt. " +
-                    "Teilen per E-Mail usw. funktioniert weiter. Beenden, Inventur-Einstellungen und Datensicherung einspielen verlangen die PIN.\n\n" +
+                    "Android fragt beim Anheften einmal nach – mit „Verstanden“ bestätigen. Teilen per E-Mail usw. funktioniert weiter (danach fragt Android erneut). Beenden, Inventur-Einstellungen und Datensicherung einspielen verlangen die PIN.\n\n" +
                     "Tipp: In den Android-Einstellungen „Vor dem Loslösen nach PIN fragen“ aktivieren – sonst lässt sich das Anheften mit der Systemgeste lösen.\n\n" +
                     "PIN gut notieren – ohne sie lässt sich der Sperrmodus in der App nicht ausschalten."),
                 pin1, pin2,
@@ -149,9 +147,7 @@ object Kiosk {
                     else -> {
                         enable(activity, p)
                         relockWanted = true
-                        onResume(activity)
-                        // Hat Android das Anheften nicht gestartet (Funktion in den Einstellungen aus), Hinweis zeigen
-                        activity.window.decorView.postDelayed({ if (!activity.isFinishing && !isPinned(activity)) pinningHint(activity) }, 1500)
+                        onResume(activity)   // Android fragt jetzt „App angepinnt“ – mit „Verstanden“ bestätigen
                     }
                 }
             }
@@ -165,7 +161,8 @@ object Kiosk {
             .setTitle("Sperrmodus")
             .setMessage(
                 if (pinned) "Der Sperrmodus ist an, die App ist angeheftet."
-                else "Der Sperrmodus ist an, die App ist aber gerade nicht angeheftet (z. B. über die Systemgeste gelöst).",
+                else "Der Sperrmodus ist an, die App ist aber gerade nicht angeheftet (z. B. über die Systemgeste gelöst " +
+                    "oder die Android-Abfrage mit „Nein danke“ beantwortet). „Jetzt anheften“ und die Abfrage mit „Verstanden“ bestätigen.",
             )
             .setPositiveButton("Ausschalten …") { _, _ ->
                 requirePin(activity, "Sperrmodus ausschalten") {
@@ -178,20 +175,8 @@ object Kiosk {
         if (!pinned) b.setNeutralButton("Jetzt anheften") { _, _ ->
             relockWanted = true
             onResume(activity)
-            activity.window.decorView.postDelayed({ if (!activity.isFinishing && !isPinned(activity)) pinningHint(activity) }, 1500)
         }
         b.show()
-    }
-
-    private fun pinningHint(activity: Activity) {
-        AlertDialog.Builder(activity)
-            .setTitle("App anheften nicht möglich")
-            .setMessage("Android hat die App nicht angeheftet. Bitte in den Android-Einstellungen unter Sicherheit → „App anpinnen“ (auch „Bildschirm fixieren“) einschalten und dort „Vor dem Loslösen nach PIN fragen“ aktivieren. Danach im Menü „Sperrmodus …“ → „Jetzt anheften“.")
-            .setPositiveButton("Einstellungen öffnen") { _, _ ->
-                runCatching { activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
-            }
-            .setNegativeButton("Später", null)
-            .show()
     }
 
     /** Hängt [onResume] an alle Bildschirme der App. */
