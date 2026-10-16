@@ -55,6 +55,14 @@ class OverviewScreen(private val host: CountActivity) {
         }
 
     private var chipFilter: StateKey? = null   // null = Alle
+
+    /** Filterleiste einblenden und auf [k] stellen (z. B. nach dem Start einer Nachzählung). */
+    fun showOnly(k: StateKey?) {
+        chipsVisible = true
+        chipFilter = k
+        renderChips()
+        render()
+    }
     private var query = ""
     private var visible: List<Article> = emptyList()
 

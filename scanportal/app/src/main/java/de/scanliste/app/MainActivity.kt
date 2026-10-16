@@ -120,6 +120,11 @@ class MainActivity : AppCompatActivity() {
                     withTimestamp = timestamp.isChecked,
                     genexis = genexis.isChecked,
                 )
+                // Genexis: Formatprüfung vorbelegen, damit vertauschte Paare auffallen (änderbar über ⋮ → Formatprüfung)
+                if (genexis.isChecked) {
+                    list.rules[0] = ColumnRule(listOf("GNXS"))
+                    list.rules[1] = ColumnRule(listOf("Z."))
+                }
                 if (trySave(list)) open(list.id)
             }
             .setNegativeButton("Abbrechen", null)

@@ -126,6 +126,39 @@ class SmokeTest {
             assertEquals(6, saved.valueCount())
             assertEquals(listOf("GNXS05DFA61A", "Z.0225460516"), saved.rows[1].cells)
         }
+        // Formatprüfung, Zielmenge, Soll-Liste: vertauschtes Paar wird erkannt, Status zeigt den Fortschritt
+        de.scanliste.app.ListStore.load(ctx, gx.id)!!.let { l ->
+            l.rules[0] = de.scanliste.app.ColumnRule(listOf("GNXS")); l.rules[1] = de.scanliste.app.ColumnRule(listOf("Z."))
+            l.target = 5
+            l.expected.addAll(listOf("GNXS05DFA614", "GNXS05DFA61A", "GNXS05DFA6EE", "GNXS05DFA6FE", "GNXS05DFA70A"))
+            de.scanliste.app.ListStore.save(ctx, l)
+        }
+        ActivityScenario.launch<de.scanliste.app.ListActivity>(gxIntent).use {
+            instr.waitForIdleSync(); Thread.sleep(400)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
+                .putExtra(DataWedge.EXTRA_DATA, "Z.0225460588\nGNXS05DFA6FE"))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            shot("0c_vertauscht")
+            assertEquals(3, de.scanliste.app.ListStore.load(ctx, gx.id)!!.rows.size)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
+                .putExtra(DataWedge.EXTRA_DATA, "GNXS05DFA6FE\nZ.0225460588\nGNXS05DFA70A\nZ.022546058E"))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            shot("0d_ziel_erreicht")
+            val l = de.scanliste.app.ListStore.load(ctx, gx.id)!!
+            assertEquals(5, l.rows.size)
+            assertTrue(l.targetReached())
+            assertEquals(0, l.missing().size)
+        }
+        // Datensicherung: sichern, Liste löschen, einspielen → Liste ist wieder da
+        val bak = File(ctx.cacheDir, "test-sicherung.zip")
+        bak.outputStream().use { de.scanportal.app.Backup.write(ctx, it) }
+        de.scanliste.app.ListStore.delete(ctx, gx.id)
+        assertEquals(null, de.scanliste.app.ListStore.load(ctx, gx.id))
+        val sum = bak.inputStream().use { de.scanportal.app.Backup.stage(ctx, it) }
+        assertTrue(sum.lists >= 1)
+        de.scanportal.app.Backup.apply(ctx)
+        assertEquals(5, de.scanliste.app.ListStore.load(ctx, gx.id)!!.rows.size)
+        assertEquals(inv.id, InventoryStore.load(ctx, inv.id)!!.id)
         ActivityScenario.launch(MainActivity::class.java).use { shot("1_uebersicht") }
         ActivityScenario.launch(EditActivity::class.java).use { shot("2_neue_inventur") }
 
@@ -191,5 +224,22 @@ class SmokeTest {
         }
         ActivityScenario.launch<ResultActivity>(resIntent).use { shot("n6_ergebnis") }
         instr.runOnMainSync { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) }
+
+        // Nachzählung der Differenzen
+        ActivityScenario.launch<CountActivity>(countIntent).use { sc ->
+            sc.onActivity { act ->
+                val skus = act.session.startRecount()!!
+                assertTrue(skus.isNotEmpty())
+                act.overview.showOnly(StateKey.OPEN)
+            }
+            instr.waitForIdleSync(); Thread.sleep(400)
+            shot("10_nachzaehlung")
+            sc.onActivity { act -> open(act, "TST20003096") }
+            instr.waitForIdleSync(); Thread.sleep(500)
+            shot("11_nachzaehlung_artikel")
+        }
+        val after = InventoryStore.load(ctx, inv.id)!!
+        assertEquals(433, after.firstCounts["TST20003096"])
+        assertEquals(null, after.counted("TST20003096"))
     }
 }

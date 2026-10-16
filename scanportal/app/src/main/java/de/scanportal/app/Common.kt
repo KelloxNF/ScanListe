@@ -28,6 +28,9 @@ class Tones(private val ctx: Context) {
 
     fun ok() { tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120) }
 
+    /** Ziel erreicht (z. B. Palette voll): auffälliger Doppelton. */
+    fun done() { tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 600) }
+
     fun error() {
         tone?.startTone(ToneGenerator.TONE_SUP_ERROR, 400)
         @Suppress("DEPRECATION")

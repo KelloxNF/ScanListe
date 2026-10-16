@@ -35,6 +35,13 @@ object Csv {
 
     fun write(out: OutputStream, list: ScanList) = ExcelCsv.write(out, build(list))
 
+    /** Einspaltige CSV, z. B. die noch fehlenden Werte einer Soll-Liste. */
+    fun writeValues(out: OutputStream, header: String, values: List<String>) =
+        ExcelCsv.write(out, buildString {
+            append(ExcelCsv.line(listOf(header)))
+            values.forEach { append(ExcelCsv.line(listOf(it))) }
+        })
+
     fun fileName(list: ScanList): String {
         val safe = list.name.replace(Regex("[^A-Za-z0-9ÄÖÜäöüß_-]+"), "_").trim('_').ifEmpty { "Liste" }
         val stamp = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.GERMANY).format(Date())

@@ -106,6 +106,19 @@ object ListStore {
         put("columns", JSONArray(list.columns))
         put("withTimestamp", list.withTimestamp)
         put("genexis", list.genexis)
+        put("rules", JSONArray().apply {
+            list.rules.forEach { r ->
+                put(if (r == null) JSONObject.NULL else JSONObject().apply {
+                    put("prefixes", JSONArray(r.prefixes))
+                    r.length?.let { put("length", it) }
+                })
+            }
+        })
+        if (list.expected.isNotEmpty()) {
+            put("expected", JSONArray(list.expected.toList()))
+            put("expectedColumn", list.expectedColumn)
+        }
+        list.target?.let { put("target", it) }
         put("created", list.created)
         put("updated", list.updated)
         put("rows", JSONArray().apply {
@@ -136,6 +149,19 @@ object ListStore {
             created = o.optLong("created"),
             updated = o.optLong("updated"),
             genexis = o.optBoolean("genexis"),
+            rules = MutableList(columns.size) { i ->
+                o.optJSONArray("rules")?.optJSONObject(i)?.let { r ->
+                    ColumnRule(
+                        r.optJSONArray("prefixes")?.let { a -> List(a.length()) { a.getString(it) } } ?: emptyList(),
+                        if (r.has("length")) r.optInt("length") else null,
+                    )
+                }
+            },
+            expected = LinkedHashSet<String>().apply {
+                o.optJSONArray("expected")?.let { a -> for (i in 0 until a.length()) add(a.getString(i)) }
+            },
+            expectedColumn = o.optInt("expectedColumn"),
+            target = if (o.has("target")) o.optInt("target") else null,
         )
     }
 }

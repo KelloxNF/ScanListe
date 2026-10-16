@@ -218,6 +218,8 @@ object Documents {
         val fixed = mutableListOf(Col("Nr.", 24f, true), Col("Artikelnummer", 112f, false))
         val after = mutableListOf(Col("Soll", 46f, true))
         zones.forEach { after.add(Col(it, 58f, true)) }
+        val recount = inv.firstCounts.isNotEmpty()
+        if (recount) after.add(Col("1. Zählung", 56f, true))
         after.add(Col("Gesamt", 48f, true)); after.add(Col("Differenz", 52f, true)); after.add(Col("Status", 74f, false))
         val nameW = (right - m) - fixed.sumOf { it.width.toDouble() }.toFloat() - after.sumOf { it.width.toDouble() }.toFloat()
         val cols = fixed + Col("Artikel", nameW, false) + after
@@ -250,6 +252,7 @@ object Documents {
             val st = inv.status(a)
             val values = mutableListOf((i + 1).toString(), a.sku, a.name, fmt(a.soll))
             zones.forEach { z -> values.add(inv.zoneQty(a.sku, z)?.let { fmt(it) } ?: "") }
+            if (recount) values.add(inv.firstCounts[a.sku]?.let { fmt(it) } ?: "")
             values.add(ist?.let { fmt(it) } ?: "")
             values.add(ist?.let { val d = it - a.soll; if (d > 0) "+${fmt(d)}" else fmt(d) } ?: "")
             values.add(inv.docStatus(a))
@@ -311,13 +314,16 @@ object CsvExport {
         val sb = StringBuilder()
         val head = mutableListOf("Kunde", "Stichtag", "Artikelnummer", "Artikel", "Soll", "Technik")
         head += zones
+        val recount = inv.firstCounts.isNotEmpty()
         head += listOf("Ist", "Differenz", "Status", "Bemerkung")
+        if (recount) head += "1. Zählung"
         sb.line(head)
         for (a in inv.docArticles()) {
             val ist = inv.counted(a.sku)
             val r = mutableListOf(inv.customer.name, Dates.display(inv.stichtag), a.sku, a.name, a.soll.toString(), a.technik.toString())
             zones.forEach { z -> r.add(inv.zoneQty(a.sku, z)?.toString() ?: "") }
             r += listOf(ist?.toString() ?: "", ist?.let { (it - a.soll).toString() } ?: "", inv.docStatus(a), inv.notes[a.sku] ?: "")
+            if (recount) r += inv.firstCounts[a.sku]?.toString() ?: ""
             sb.line(r)
         }
         return sb.toString()

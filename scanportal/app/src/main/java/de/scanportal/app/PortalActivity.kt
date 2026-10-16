@@ -4,7 +4,16 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -58,6 +67,73 @@ class PortalActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         scanHint.register()
+    }
+
+    // ---------------------------------------------------------------- Datensicherung
+
+    private val saveBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
+        if (uri != null) runCatching {
+            contentResolver.openOutputStream(uri, "wt")?.use { Backup.write(this, it) }
+        }.onSuccess { toast("Datensicherung gespeichert") }.onFailure { toast("Sicherung fehlgeschlagen: ${it.message}") }
+    }
+
+    private val openBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) restore(uri)
+    }
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+
+    private fun backupName() =
+        "ScanPortal_Sicherung_" + SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.GERMANY).format(Date()) + ".zip"
+
+    private fun createBackup() {
+        AlertDialog.Builder(this)
+            .setTitle("Datensicherung erstellen")
+            .setMessage("Alle Listen, Inventuren, Barcode-Zuordnungen, eigenen Bezeichnungen und Einstellungen in eine Datei. Diese z. B. per USB auf den PC kopieren.")
+            .setPositiveButton("Auf dem Gerät speichern …") { _, _ -> saveBackup.launch(backupName()) }
+            .setNeutralButton("Teilen …") { _, _ ->
+                runCatching { Share.send(this, backupName(), "application/zip", "Scan-Portal Datensicherung") { Backup.write(this, it) } }
+                    .onFailure { toast("Sicherung fehlgeschlagen: ${it.message}") }
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun restore(uri: Uri) {
+        val summary = runCatching {
+            contentResolver.openInputStream(uri)?.use { Backup.stage(this, it) } ?: throw IllegalArgumentException("Datei nicht lesbar.")
+        }.getOrElse { toast(it.message ?: "Datei nicht lesbar."); return }
+        val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(summary.created))
+        AlertDialog.Builder(this)
+            .setTitle("Datensicherung einspielen?")
+            .setMessage(
+                "Sicherung vom $date (Version ${summary.version}): ${summary.lists} Listen, ${summary.inventories} Inventuren.\n\n" +
+                    "ACHTUNG: Alle aktuellen Daten auf diesem Gerät werden durch die Sicherung ersetzt. " +
+                    "Wer unsicher ist, erstellt vorher eine Datensicherung des aktuellen Stands.",
+            )
+            .setPositiveButton("Ersetzen") { _, _ ->
+                runCatching { Backup.apply(this) }
+                    .onSuccess { toast("Datensicherung eingespielt: ${summary.lists} Listen, ${summary.inventories} Inventuren") }
+                    .onFailure { toast("Einspielen fehlgeschlagen, alte Daten bleiben erhalten: ${it.message}") }
+            }
+            .setNegativeButton("Abbrechen") { _, _ -> Backup.discard(this) }
+            .setOnCancelListener { Backup.discard(this) }
+            .show()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(0, 1, 0, "Datensicherung erstellen …")
+        menu.add(0, 2, 0, "Datensicherung einspielen …")
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            1 -> createBackup()
+            2 -> openBackup.launch(arrayOf("*/*"))
+            else -> return super.onOptionsItemSelected(item)
+        }
+        return true
     }
 
     private fun tile(title: String, subtitle: String, icon: Int, color: Int, onClick: () -> Unit): LinearLayout {

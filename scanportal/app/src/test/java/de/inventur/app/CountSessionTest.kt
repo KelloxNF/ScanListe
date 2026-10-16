@@ -130,4 +130,34 @@ class CountSessionTest {
         assertEquals(listOf("B"), s.inv.articles.map { it.sku })
         assertNull(s.inv.counted("A"))
     }
+
+    @Test fun recountKeepsFirstCountAndResetsOnlyDifferences() {
+        val s = session(a, b)
+        s.add("A", 9)            // Soll 10 → Differenz
+        s.add("B", 5)            // Soll 5 → stimmt
+        assertEquals(listOf("A"), s.startRecount())
+        assertEquals(9, s.inv.firstCounts["A"])
+        assertNull(s.inv.counted("A"))
+        assertEquals(5, s.inv.counted("B"))
+        assertEquals(CountSession.UndoResult.Done("Box B", 5, "Versand"), s.undo())   // A ist nicht mehr rückgängig zu machen
+        // zweite Nachzählung behält die echte 1. Zählung
+        s.add("A", 11)
+        s.startRecount()
+        assertEquals(9, s.inv.firstCounts["A"])
+    }
+
+    @Test fun recountRollsBackWhenNotSaved() {
+        val s = session(a)
+        s.add("A", 9)
+        full = true
+        assertNull(s.startRecount())
+        assertEquals(9, s.inv.counted("A"))
+        assertTrue(s.inv.firstCounts.isEmpty())
+    }
+
+    @Test fun recountWithoutDifferences() {
+        val s = session(a)
+        s.add("A", 10)
+        assertEquals(emptyList<String>(), s.startRecount())
+    }
 }

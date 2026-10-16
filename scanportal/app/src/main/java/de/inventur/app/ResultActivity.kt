@@ -242,7 +242,8 @@ class ResultActivity : AppCompatActivity() {
             val a = rows[position]
             val ist = inv.counted(a.sku)
             val st = inv.status(a)
-            h.name.text = "${a.name}\n${st.label}" + (inv.notes[a.sku]?.let { " · $it" } ?: "")
+            h.name.text = "${a.name}\n${st.label}" + (inv.firstCounts[a.sku]?.let { " · 1. Zählung $it" } ?: "") +
+                (inv.notes[a.sku]?.let { " · $it" } ?: "")
             h.soll.text = a.soll.toString()
             h.ist.text = ist?.toString() ?: "–"
             val d = ist?.minus(a.soll)

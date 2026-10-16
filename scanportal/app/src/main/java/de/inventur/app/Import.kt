@@ -18,14 +18,15 @@ data class ImportResult(val articles: List<Article>, val info: String)
  */
 object Importer {
 
-    fun read(bytes: ByteArray): ImportResult {
-        val rows = if (bytes.size > 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+    fun read(bytes: ByteArray): ImportResult = toArticles(readRows(bytes))
+
+    /** Zeilen einer Excel- (.xlsx, erstes Blatt) oder CSV-Datei, je Zeile die Zellen als Text. */
+    fun readRows(bytes: ByteArray): List<List<String>> =
+        if (bytes.size > 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
             Xlsx.firstSheet(bytes)
         } else {
             CsvReader.parse(decode(bytes))
         }
-        return toArticles(rows)
-    }
 
     fun toArticles(rows: List<List<String>>): ImportResult {
         val nonEmpty = rows.filter { r -> r.any { it.isNotBlank() } }

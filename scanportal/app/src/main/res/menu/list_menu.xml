@@ -25,6 +25,31 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_rules"
+        android:title="Formatprüfung …"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_target"
+        android:title="Zielmenge …"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_expected_load"
+        android:title="Soll-Liste laden …"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_expected_missing"
+        android:title="Soll-Liste: fehlende anzeigen"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_expected_clear"
+        android:title="Soll-Liste entfernen"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_manual"
         android:title="Manuell eingeben"
         app:showAsAction="never" />

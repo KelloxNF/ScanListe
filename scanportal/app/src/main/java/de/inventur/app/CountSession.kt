@@ -126,6 +126,34 @@ class CountSession(
         return persist()
     }
 
+    /** Artikel, deren gezählte Menge vom Soll abweicht (ohne geschätzte) – Kandidaten für die Nachzählung. */
+    fun differing(): List<Article> = inv.listArticles().filter { inv.status(it) == Status.DIFFERENZ }
+
+    /**
+     * Nachzählung: hält für alle Artikel mit Differenz die bisherige Gesamtmenge als „1. Zählung“ fest
+     * (eine schon vorhandene 1. Zählung bleibt) und setzt ihre Mengen zurück, damit sie neu gezählt werden.
+     * Liefert die betroffenen Artikelnummern, oder null, wenn nicht gespeichert werden konnte.
+     */
+    fun startRecount(): List<String>? {
+        val skus = differing().map { it.sku }
+        if (skus.isEmpty()) return emptyList()
+        val set = skus.toHashSet()
+        val counts = inv.counts.toList()
+        val first = HashMap(inv.firstCounts)
+        val closed = inv.closed
+        for (s in skus) inv.counted(s)?.let { inv.firstCounts.putIfAbsent(s, it) }
+        inv.replaceCounts(counts.filter { it.sku !in set })
+        inv.closed = false
+        if (!persist()) {
+            inv.replaceCounts(counts)
+            inv.firstCounts.clear(); inv.firstCounts.putAll(first)
+            inv.closed = closed
+            return null
+        }
+        undoStack.removeAll { it.sku in set }
+        return skus
+    }
+
     /** Entfernt den Artikel aus dieser Inventur. Bei Speicherfehler wird er vollständig wiederhergestellt. */
     fun delete(sku: String): Boolean {
         val pos = inv.articles.indexOfFirst { it.sku == sku }
@@ -133,6 +161,7 @@ class CountSession(
         val counts = inv.counts.toList()
         val wasEstimated = sku in inv.estimated
         val note = inv.notes[sku]
+        val first = inv.firstCounts[sku]
         inv.removeArticle(sku)
         undoStack.removeAll { it.sku == sku }
         if (persist()) return true
@@ -140,6 +169,7 @@ class CountSession(
         inv.replaceCounts(counts)
         if (wasEstimated) inv.estimated.add(sku)
         if (note != null) inv.notes[sku] = note
+        if (first != null) inv.firstCounts[sku] = first
         return false
     }
 }

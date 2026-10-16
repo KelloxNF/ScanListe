@@ -198,7 +198,8 @@ class ArticleScreen(private val host: CountActivity) {
         dState.text = session.label(st)
         countCard.background = host.rounded(st.fill, 16f, st.edge, 3)
         val zl = session.zoneLines(a.sku)
-        dZones.text = if (zl.isEmpty()) "noch nicht gezählt" else zl.joinToString("   ") + if (a.sku in inv.estimated) "   (geschätzt)" else ""
+        dZones.text = (if (zl.isEmpty()) "noch nicht gezählt" else zl.joinToString("   ") + if (a.sku in inv.estimated) "   (geschätzt)" else "") +
+            (inv.firstCounts[a.sku]?.let { "\nNachzählung · 1. Zählung: $it" } ?: "")
         tSoll.visibility = if (inv.blind || a.soll <= 0) View.GONE else View.VISIBLE
         tSollVal.text = "${a.soll} in „${session.zone}“"
         tEstVal.text = if (a.sku in inv.estimated) "An" else "Aus"

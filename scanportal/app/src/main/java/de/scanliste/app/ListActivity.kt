@@ -40,13 +40,13 @@ class ListActivity : AppCompatActivity() {
         const val EXTRA_ID = "list_id"
     }
 
-    private lateinit var list: ScanList
+    internal lateinit var list: ScanList
     private lateinit var adapter: RowAdapter
     private lateinit var recycler: RecyclerView
     private lateinit var statusText: TextView
     private lateinit var feedbackText: TextView
     private lateinit var input: EditText
-    private lateinit var tones: Tones
+    internal lateinit var tones: Tones
     private var receiverRegistered = false
 
     /**
@@ -64,6 +64,11 @@ class ListActivity : AppCompatActivity() {
             handleValue(data, DataWedge.prettyType(intent.getStringExtra(DataWedge.EXTRA_LABEL_TYPE)))
         }
     }
+
+    private val tools = ListTools(this)
+
+    private val expectedLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) tools.loadExpected(uri) }
 
     private val exportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
@@ -154,6 +159,11 @@ class ListActivity : AppCompatActivity() {
         }
         return when (val result = list.add(raw)) {
             is AddResult.Empty -> false
+            is AddResult.Rejected -> {
+                showFeedback("✗ ${result.message}", error = true)
+                tones.error()
+                false
+            }
             is AddResult.Duplicate -> {
                 showFeedback(
                     "✗ Doppelt – \"${short(raw)}\" steht schon in Zeile ${result.row + 1}" +
@@ -177,8 +187,8 @@ class ListActivity : AppCompatActivity() {
                 val typeInfo = if (type != null) " ($type)" else ""
                 val many = ScanList.splitValues(raw).size
                 val hint = if (many > 1 && list.columns.size == 2) " · QR-Code mit $many Werten in einer Zelle – für Paare ⋮ → Genexis-Scan" else ""
-                showFeedback("✓ ${short(raw)}$typeInfo$hint", error = false)
-                tones.ok()
+                showFeedback("✓ ${short(raw)}$typeInfo$hint${targetNote()}", error = false)
+                signalOk()
                 scrollToEnd()
                 updateStatus()
                 true
@@ -211,8 +221,8 @@ class ListActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
                 val range = if (r.rows == 1) "Zeile ${r.firstRow + 1}" else "Zeilen ${r.firstRow + 1}–${r.firstRow + r.rows}"
                 val skip = if (r.skipped > 0) " · ${r.skipped} schon erfasste übersprungen" else ""
-                showFeedback("✓ ${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range$skip", error = false)
-                tones.ok()
+                showFeedback("✓ ${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range$skip${targetNote()}", error = false)
+                signalOk()
                 scrollToEnd()
                 updateStatus()
                 return true
@@ -237,7 +247,18 @@ class ListActivity : AppCompatActivity() {
     }
 
     /** Speichert die Liste. Bei einem Fehler (z. B. Speicher voll) Meldung statt Absturz. */
-    private fun persist(): Boolean = try {
+    /** Erfolgston – bei erreichter Zielmenge der auffällige Doppelton. */
+    private fun signalOk() = if (list.targetReached()) tones.done() else tones.ok()
+
+    private fun targetNote(): String = if (list.targetReached()) " · ZIEL ERREICHT (${list.target} von ${list.target})" else ""
+
+    /** Tabelle und Statuszeile nach einer Änderung neu zeichnen. */
+    internal fun refresh() {
+        adapter.notifyDataSetChanged()
+        updateStatus()
+    }
+
+    internal fun persist(): Boolean = try {
         ListStore.save(this, list, withInfo = false)
         infoDirty = true
         true
@@ -249,14 +270,20 @@ class ListActivity : AppCompatActivity() {
 
     private fun colSuffix(col: Int) = if (list.columns.size > 1) ", Spalte \"${list.columns[col]}\"" else ""
 
-    private fun updateStatus() {
+    internal fun updateStatus() {
         val (r, c) = list.nextSlot()
         val next = if (list.columns.size > 1) "Zeile ${r + 1} → ${list.columns[c]}" else "Zeile ${r + 1}"
-        statusText.text = (if (list.genexis) "Genexis-Scan · " else "") +
-            "${list.valueCount()} Einträge · Nächster Scan: $next"
+        val parts = mutableListOf<String>()
+        if (list.genexis) parts += "Genexis-Scan"
+        list.target?.let { parts += "Ziel: ${list.completeRows()} von $it" }
+        if (list.expected.isNotEmpty()) parts += "Soll-Liste: ${list.foundExpected()} von ${list.expected.size}"
+        if (list.rules.any { it != null }) parts += "Formatprüfung"
+        parts += "${list.valueCount()} Einträge"
+        if (!list.targetReached()) parts += "Nächster Scan: $next"
+        statusText.text = parts.joinToString(" · ")
     }
 
-    private fun showFeedback(text: String, error: Boolean) {
+    internal fun showFeedback(text: String, error: Boolean) {
         feedbackText.text = text
         feedbackText.setBackgroundColor(
             ContextCompat.getColor(this, if (error) R.color.feedback_error else R.color.feedback_ok),
@@ -336,6 +363,9 @@ class ListActivity : AppCompatActivity() {
             isVisible = list.columns.size == 2   // ein Paar = genau eine Zeile mit zwei Spalten
             isChecked = list.genexis
         }
+        val hasExpected = list.expected.isNotEmpty()
+        menu.findItem(R.id.action_expected_missing)?.isVisible = hasExpected
+        menu.findItem(R.id.action_expected_clear)?.isVisible = hasExpected
         return true
     }
 
@@ -345,6 +375,11 @@ class ListActivity : AppCompatActivity() {
         R.id.action_export -> { exportLauncher.launch(Csv.fileName(list)); true }
         R.id.action_share -> { share(); true }
         R.id.action_genexis -> { toggleGenexis(); true }
+        R.id.action_rules -> { tools.editRules(); true }
+        R.id.action_target -> { tools.editTarget(); true }
+        R.id.action_expected_load -> { expectedLauncher.launch(arrayOf("*/*")); true }
+        R.id.action_expected_missing -> { tools.showMissing(); true }
+        R.id.action_expected_clear -> { tools.clearExpected(); true }
         R.id.action_manual -> {
             input.requestFocus()
             getSystemService(InputMethodManager::class.java)?.showSoftInput(input, 0)

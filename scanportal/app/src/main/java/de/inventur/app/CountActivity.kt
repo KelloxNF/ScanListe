@@ -226,6 +226,28 @@ class CountActivity : AppCompatActivity() {
         overview.render()
     }
 
+    /** Nachzählung: Artikel mit Differenz zurücksetzen und als „nicht gezählt“ anzeigen. */
+    private fun startRecount() {
+        val diff = session.differing()
+        if (diff.isEmpty()) { toastShort("Keine Artikel mit Differenz – nichts nachzuzählen."); return }
+        AlertDialog.Builder(this)
+            .setTitle("${diff.size} Artikel nachzählen?")
+            .setMessage(
+                diff.take(8).joinToString("\n") { "• ${it.name}" } + (if (diff.size > 8) "\n• …" else "") +
+                    "\n\nDie bisherigen Mengen werden als „1. Zählung“ festgehalten (Zählliste und CSV) und für diese Artikel " +
+                    "auf „nicht gezählt“ gesetzt. Danach jeden Artikel neu zählen.",
+            )
+            .setPositiveButton("Nachzählen") { _, _ ->
+                val skus = session.startRecount()
+                if (skus == null) { saveFailed(); return@setPositiveButton }
+                overview.showOnly(StateKey.OPEN)
+                invalidateOptionsMenu()
+                toastShort("${skus.size} Artikel zum Nachzählen – Filter „Nicht gezählt“ ist aktiv.")
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
     internal fun openResult() {
         startActivity(Intent(this, ResultActivity::class.java).putExtra(EXTRA_ID, session.inv.id))
     }
@@ -236,6 +258,7 @@ class CountActivity : AppCompatActivity() {
         if (cur != null) return true   // im Artikel-Bildschirm kein Menü
         menu.add(0, 7, 0, "Filter anzeigen").apply { isCheckable = true; isChecked = overview.chipsVisible }
         menu.add(0, 1, 0, "Letzte Zählung rückgängig")
+        menu.add(0, 5, 0, "Differenzen nachzählen …")
         menu.add(0, 2, 0, "Artikel ohne Bestand zeigen").apply { isCheckable = true; isChecked = overview.showAll }
         menu.add(0, 3, 0, "Kopfdaten bearbeiten")
         menu.add(0, 4, 0, "Barcode-Zuordnungen dieses Kunden löschen")
@@ -248,6 +271,7 @@ class CountActivity : AppCompatActivity() {
             android.R.id.home -> if (cur != null) closeArticle() else finish()
             7 -> { overview.chipsVisible = !overview.chipsVisible; item.isChecked = overview.chipsVisible }
             1 -> undo()
+            5 -> startRecount()
             2 -> { overview.showAll = !overview.showAll; item.isChecked = overview.showAll }
             3 -> startActivity(Intent(this, EditActivity::class.java).putExtra(EXTRA_ID, session.inv.id))
             4 -> AlertDialog.Builder(this)

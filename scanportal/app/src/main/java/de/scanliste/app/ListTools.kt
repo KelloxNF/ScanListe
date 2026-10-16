@@ -1,0 +1,212 @@
+package de.scanliste.app
+
+import android.net.Uri
+import android.text.InputType
+import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import de.inventur.app.Importer
+import de.scanportal.app.Share
+import de.scanportal.app.dp
+
+/** Dialoge für Formatprüfung, Zielmenge und Soll-Liste einer Liste. */
+class ListTools(private val activity: ListActivity) {
+    private val list get() = activity.list
+
+    private fun field(hint: String, value: String, number: Boolean = false) = EditText(activity).apply {
+        this.hint = hint
+        setText(value)
+        maxLines = 1
+        inputType = if (number) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+    }
+
+    private fun label(text: String, top: Int = 12) = TextView(activity).apply {
+        this.text = text
+        textSize = 14f
+        setPadding(0, activity.dp(top), 0, 0)
+    }
+
+    private fun form(): LinearLayout = LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(activity.dp(24), activity.dp(8), activity.dp(24), 0)
+    }
+
+    private fun toast(msg: String) = Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
+
+    // ------------------------------------------------------------ Formatprüfung
+
+    /** Je Spalte: „beginnt mit“ (mehrere mit Komma) und Länge. Leer = keine Prüfung. */
+    fun editRules() {
+        val box = form()
+        box.addView(label("Werte, die nicht passen, werden abgelehnt. Leer lassen = keine Prüfung.", 0).apply { alpha = 0.7f })
+        val inputs = list.columns.mapIndexed { i, col ->
+            val r = list.rules.getOrNull(i)
+            box.addView(label(col).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+            val prefix = field("beginnt mit, z. B. GNXS (mehrere mit Komma)", r?.prefixes?.joinToString(", ") ?: "")
+            val length = field("Länge in Zeichen (leer = egal)", r?.length?.toString() ?: "", number = true)
+            box.addView(prefix); box.addView(length)
+            prefix to length
+        }
+        AlertDialog.Builder(activity)
+            .setTitle("Formatprüfung")
+            .setView(ScrollView(activity).apply { addView(box) })
+            .setPositiveButton("Speichern") { _, _ ->
+                val old = list.rules.toList()
+                inputs.forEachIndexed { i, (p, l) -> list.rules[i] = ColumnRule.parse(p.text.toString(), l.text.toString()) }
+                if (!activity.persist()) { old.forEachIndexed { i, r -> list.rules[i] = r }; return@setPositiveButton }
+                activity.updateStatus()
+                val bad = list.rows.count { row -> row.cells.withIndex().any { (i, v) -> v.isNotEmpty() && list.rules.getOrNull(i)?.accepts(v) == false } }
+                activity.showFeedback(
+                    if (list.rules.all { it == null }) "Formatprüfung aus"
+                    else "Formatprüfung gespeichert" + if (bad > 0) " · Achtung: $bad bereits erfasste Zeilen passen nicht" else "",
+                    error = bad > 0,
+                )
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    // ------------------------------------------------------------ Zielmenge
+
+    fun editTarget() {
+        val box = form()
+        box.addView(label("Wie viele Zeilen (Geräte) gehören in diese Liste, z. B. 40 je Palette? Ist sie voll, ertönt ein Doppelton und weitere Scans werden abgelehnt. Leer = unbegrenzt.", 0).apply { alpha = 0.7f })
+        val f = field("z. B. 40", list.target?.toString() ?: "", number = true)
+        box.addView(f)
+        AlertDialog.Builder(activity)
+            .setTitle("Zielmenge")
+            .setView(box)
+            .setPositiveButton("Speichern") { _, _ ->
+                val old = list.target
+                list.target = f.text.toString().trim().toIntOrNull()?.takeIf { it > 0 }
+                if (!activity.persist()) { list.target = old; return@setPositiveButton }
+                activity.updateStatus()
+                val t = list.target
+                activity.showFeedback(
+                    when {
+                        t == null -> "Zielmenge aus"
+                        list.rows.size > t -> "Zielmenge $t – Achtung: die Liste hat schon ${list.rows.size} Zeilen"
+                        else -> "Zielmenge $t gespeichert · noch ${t - list.completeRows()} frei"
+                    },
+                    error = t != null && list.rows.size > t,
+                )
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    // ------------------------------------------------------------ Soll-Liste
+
+    /** Datei lesen (im Hintergrund), dann Spalte der Datei und ggf. Spalte der Liste wählen. */
+    fun loadExpected(uri: Uri) {
+        activity.showFeedback("Soll-Liste wird gelesen …", error = false)
+        Thread {
+            val result = runCatching {
+                val bytes = activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalArgumentException("Datei nicht lesbar.")
+                Importer.readRows(bytes)
+            }
+            activity.runOnUiThread {
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                result.onSuccess { chooseFileColumn(it) }
+                    .onFailure { activity.showFeedback("✗ Soll-Liste nicht lesbar: ${it.message}", error = true) }
+            }
+        }.start()
+    }
+
+    /** Werte einer Spalte; die erste Zeile zählt als Überschrift, wenn sie keine Ziffer enthält. */
+    private fun columnValues(rows: List<List<String>>, col: Int): List<String> {
+        val cells = rows.mapNotNull { it.getOrNull(col)?.trim()?.takeIf { v -> v.isNotEmpty() } }
+        val body = if (cells.firstOrNull()?.none { it.isDigit() } == true) cells.drop(1) else cells
+        return body.distinct()
+    }
+
+    private fun chooseFileColumn(rows: List<List<String>>) {
+        val width = rows.maxOfOrNull { it.size } ?: 0
+        val cols = (0 until width).map { it to columnValues(rows, it) }.filter { it.second.isNotEmpty() }
+        if (cols.isEmpty()) { activity.showFeedback("✗ Die Datei enthält keine Werte.", error = true); return }
+        val labels = cols.map { (i, v) ->
+            val head = rows.firstOrNull()?.getOrNull(i)?.trim().orEmpty().takeIf { h -> h.isNotEmpty() && h.none { it.isDigit() } }
+            "Spalte ${'A' + i}${head?.let { " „$it“" } ?: ""}: ${v.size} Werte, z. B. ${v.first()}"
+        }.toTypedArray()
+        AlertDialog.Builder(activity)
+            .setTitle("Welche Spalte enthält die Soll-Werte?")
+            .setItems(labels) { _, which -> chooseListColumn(cols[which].second) }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun chooseListColumn(values: List<String>) {
+        if (list.columns.size == 1) { applyExpected(values, 0); return }
+        AlertDialog.Builder(activity)
+            .setTitle("Gegen welche Spalte der Liste prüfen?")
+            .setItems(list.columns.toTypedArray()) { _, which -> applyExpected(values, which) }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun applyExpected(values: List<String>, col: Int) {
+        val oldValues = list.expected.toList()
+        val oldCol = list.expectedColumn
+        list.expected.clear(); list.expected.addAll(values)
+        list.expectedColumn = col
+        if (!activity.persist()) {
+            list.expected.clear(); list.expected.addAll(oldValues); list.expectedColumn = oldCol
+            return
+        }
+        activity.invalidateOptionsMenu()
+        activity.updateStatus()
+        val foreign = list.rows.count { r -> r.cells.getOrNull(col)?.let { it.isNotEmpty() && it !in list.expected } == true }
+        activity.showFeedback(
+            "Soll-Liste geladen: ${values.size} Werte für „${list.columns[col]}“ · ${list.foundExpected()} schon erfasst" +
+                if (foreign > 0) " · Achtung: $foreign erfasste Werte stehen nicht in der Soll-Liste" else "",
+            error = foreign > 0,
+        )
+    }
+
+    fun showMissing() {
+        val missing = list.missing()
+        if (missing.isEmpty()) { toast("Alle ${list.expected.size} Soll-Werte sind erfasst."); return }
+        val shown = missing.take(300)
+        val text = TextView(activity).apply {
+            text = shown.joinToString("\n") + if (missing.size > shown.size) "\n… und ${missing.size - shown.size} weitere" else ""
+            textSize = 15f
+            setTextIsSelectable(true)
+            setPadding(activity.dp(24), activity.dp(8), activity.dp(24), 0)
+        }
+        AlertDialog.Builder(activity)
+            .setTitle("Es fehlen noch ${missing.size} von ${list.expected.size}")
+            .setView(ScrollView(activity).apply {
+                addView(text, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            })
+            .setPositiveButton("Als CSV teilen") { _, _ ->
+                runCatching {
+                    Share.send(activity, "Fehlend_${Csv.fileName(list)}", "text/csv", "Fehlend – ${list.name}") { out ->
+                        Csv.writeValues(out, list.columns.getOrElse(list.expectedColumn) { "Wert" }, missing)
+                    }
+                }.onFailure { toast("Teilen fehlgeschlagen: ${it.message}") }
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+
+    fun clearExpected() {
+        AlertDialog.Builder(activity)
+            .setTitle("Soll-Liste entfernen?")
+            .setMessage("Danach werden wieder alle Werte angenommen. Die erfassten Werte bleiben erhalten.")
+            .setPositiveButton("Entfernen") { _, _ ->
+                val old = list.expected.toList()
+                list.expected.clear()
+                if (!activity.persist()) { list.expected.addAll(old); return@setPositiveButton }
+                activity.invalidateOptionsMenu()
+                activity.updateStatus()
+                activity.showFeedback("Soll-Liste entfernt", error = false)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+}

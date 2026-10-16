@@ -3,6 +3,34 @@ package de.scanliste.app
 /** Eine Zeile der Tabelle: ein Wert pro Spalte, plus Zeitpunkt der Erfassung. */
 data class ScanRow(val cells: MutableList<String>, var time: Long)
 
+/**
+ * Formatprüfung einer Spalte: Der Wert muss mit einem der [prefixes] beginnen (Groß-/Kleinschreibung egal)
+ * und – falls angegeben – genau [length] Zeichen lang sein. Leere Regel = alles erlaubt.
+ */
+data class ColumnRule(val prefixes: List<String> = emptyList(), val length: Int? = null) {
+    val isEmpty get() = prefixes.isEmpty() && length == null
+
+    fun accepts(v: String) =
+        (prefixes.isEmpty() || prefixes.any { v.startsWith(it, ignoreCase = true) }) && (length == null || v.length == length)
+
+    /** z. B. „beginnt mit GNXS, 12 Zeichen“. */
+    fun describe(): String = listOfNotNull(
+        prefixes.takeIf { it.isNotEmpty() }?.let { "beginnt mit ${it.joinToString(" oder ")}" },
+        length?.let { "$it Zeichen" },
+    ).joinToString(", ")
+
+    companion object {
+        /** Aus den Eingaben im Dialog: Präfixe mit Komma getrennt, Länge als Zahl (leer = egal). */
+        fun parse(prefixes: String, length: String): ColumnRule? {
+            val r = ColumnRule(
+                prefixes.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() },
+                length.trim().toIntOrNull()?.takeIf { it > 0 },
+            )
+            return r.takeIf { !it.isEmpty }
+        }
+    }
+}
+
 /** Ergebnis eines Genexis-Scans (QR-Code mit mehreren Werten, je zwei gehören zusammen). */
 sealed class PairResult {
     /** [rows] neue Zeilen ab [firstRow]; [skipped] Paare standen schon vollständig in der Liste. */
@@ -21,6 +49,8 @@ sealed class AddResult {
     object Empty : AddResult()
     data class Duplicate(val row: Int, val col: Int) : AddResult()
     data class Added(val row: Int, val col: Int) : AddResult()
+    /** Abgelehnt durch Formatprüfung, Soll-Liste oder Zielmenge – nichts übernommen. */
+    data class Rejected(val message: String) : AddResult()
 }
 
 /**
@@ -45,6 +75,13 @@ class ScanList(
      * 1.+2. Wert, 3.+4. Wert … Jedes Paar kommt in eine eigene Zeile (1. Spalte / 2. Spalte).
      */
     var genexis: Boolean = false,
+    /** Formatprüfung je Spalte (Index = Spalte), null = keine Prüfung. */
+    val rules: MutableList<ColumnRule?> = MutableList(columns.size) { null },
+    /** Soll-Liste: erwartete Werte in Spalte [expectedColumn]; leer = kein Abgleich. */
+    val expected: LinkedHashSet<String> = LinkedHashSet(),
+    var expectedColumn: Int = 0,
+    /** Zielmenge in Zeilen (z. B. 40 Geräte je Palette); null = unbegrenzt. */
+    var target: Int? = null,
 ) {
     companion object {
         /** Teilt den Inhalt eines Scans in einzelne Werte (eine Zeile je Wert). */
@@ -52,6 +89,9 @@ class ScanList(
             raw.split('\n', '\r').map { it.trim() }.filter { it.isNotEmpty() }
     }
 
+    init {
+        while (rules.size < columns.size) rules.add(null)
+    }
 
     /** Alle vorhandenen Werte, für eine sofortige Duplikatprüfung auch bei sehr großen Listen. */
     private val values: HashSet<String> = HashSet<String>().also { set ->
@@ -77,6 +117,33 @@ class ScanList(
         return rows.size to 0
     }
 
+    // ------------------------------------------------------------ Prüfungen
+
+    /** Zeilen, die vollständig gefüllt sind. */
+    fun completeRows(): Int = rows.count { r -> r.cells.none { it.isEmpty() } }
+
+    /** Zielmenge erreicht: so viele Zeilen wie gewünscht, alle vollständig. */
+    fun targetReached(): Boolean = target?.let { completeRows() >= it } ?: false
+
+    /** Soll-Werte, die noch nicht gescannt sind, in der Reihenfolge der Soll-Liste. */
+    fun missing(): List<String> = expected.filter { it !in values }
+
+    /** Wie viele Soll-Werte schon gescannt sind. */
+    fun foundExpected(): Int = expected.count { it in values }
+
+    /** Grund, warum [v] nicht in Spalte [col] darf – oder null, wenn alles passt. */
+    private fun problem(v: String, col: Int): String? {
+        rules.getOrNull(col)?.let { r ->
+            if (!r.accepts(v)) return "\"$v\" passt nicht zu ${columns[col]} (${r.describe()})"
+        }
+        if (expected.isNotEmpty() && col == expectedColumn && v !in expected) {
+            return "\"$v\" steht nicht in der Soll-Liste"
+        }
+        return null
+    }
+
+    // ------------------------------------------------------------ Erfassen
+
     fun add(raw: String): AddResult {
         val value = raw.trim()
         if (value.isEmpty()) return AddResult.Empty
@@ -84,9 +151,13 @@ class ScanList(
             val (r, c) = find(value) ?: (0 to 0)
             return AddResult.Duplicate(r, c)
         }
+        val (r, c) = nextSlot()
+        target?.let { t ->
+            if (r >= t) return AddResult.Rejected("Zielmenge erreicht ($t von $t). Nicht übernommen.")
+        }
+        problem(value, c)?.let { return AddResult.Rejected("$it. Nicht übernommen.") }
 
         val now = System.currentTimeMillis()
-        val (r, c) = nextSlot()
         if (r == rows.size) {
             rows.add(ScanRow(MutableList(columns.size) { "" }, now))
         }
@@ -131,7 +202,19 @@ class ScanList(
                         r,
                     )
                 }
-                else -> fresh.add(a to b)
+                else -> {
+                    pairProblem(a, b)?.let { return PairResult.Rejected("$it Nichts übernommen.") }
+                    fresh.add(a to b)
+                }
+            }
+        }
+        target?.let { t ->
+            val free = t - rows.size
+            if (fresh.size > free) {
+                return PairResult.Rejected(
+                    if (free <= 0) "Zielmenge erreicht ($t von $t). Nichts übernommen."
+                    else "Nur noch $free von $t frei, der QR-Code hat ${fresh.size} neue Paare. Nichts übernommen.",
+                )
             }
         }
         val first = rows.size
@@ -145,6 +228,22 @@ class ScanList(
         if (fresh.isNotEmpty()) updated = now
         return PairResult.Added(first, fresh.size, skipped)
     }
+
+    /** Formatprüfung und Soll-Liste für ein Paar; erkennt vertauschte Reihenfolge. */
+    private fun pairProblem(a: String, b: String): String? {
+        val pa = problem(a, 0)
+        val pb = problem(b, 1)
+        if (pa == null && pb == null) return null
+        val formatOnly = rules.take(2).any { it != null }
+        if (formatOnly && rules[0]?.accepts(b) != false && rules[1]?.accepts(a) != false &&
+            (rules[0]?.accepts(a) == false || rules[1]?.accepts(b) == false)
+        ) {
+            return "Reihenfolge im QR-Code vertauscht: \"$a\" / \"$b\"."
+        }
+        return "${pa ?: pb}."
+    }
+
+    // ------------------------------------------------------------ Zurücknehmen
 
     /** Entfernt die letzten [count] Zeilen (für „Rückgängig“ nach einem Genexis-Scan). */
     fun removeLastRows(count: Int): Int {

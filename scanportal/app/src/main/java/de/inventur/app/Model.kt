@@ -75,6 +75,8 @@ class Inventory(
     var updated: Long,
     /** Auch Artikel mit Bestand 0 (ungezählt) in Anschreiben, Zählliste und CSV aufführen. */
     var includeZero: Boolean = false,
+    /** Nachzählung: die erste gezählte Gesamtmenge je Artikel, bevor neu gezählt wurde. */
+    val firstCounts: MutableMap<String, Int> = mutableMapOf(),
 ) {
     fun article(sku: String): Article? = articles.firstOrNull { it.sku == sku }
 
@@ -189,6 +191,7 @@ class Inventory(
         _counts.removeAll { it.sku == sku }
         estimated.remove(sku)
         notes.remove(sku)
+        firstCounts.remove(sku)
         index = null
     }
 

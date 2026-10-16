@@ -61,6 +61,7 @@ object InventoryStore {
         put("blind", inv.blind)
         put("closed", inv.closed)
         put("includeZero", inv.includeZero)
+        if (inv.firstCounts.isNotEmpty()) put("firstCounts", JSONObject(inv.firstCounts as Map<*, *>))
         put("created", inv.created)
         put("updated", inv.updated)
         put("articles", JSONArray().apply {
@@ -114,6 +115,9 @@ object InventoryStore {
             created = o.optLong("created"),
             updated = o.optLong("updated"),
             includeZero = o.optBoolean("includeZero"),
+            firstCounts = mutableMapOf<String, Int>().apply {
+                o.optJSONObject("firstCounts")?.let { f -> f.keys().forEach { k -> put(k, f.optInt(k)) } }
+            },
         )
     }
 }
@@ -146,6 +150,9 @@ object BarcodeStore {
     }
 
     private fun key(customer: String) = customer.trim().lowercase()
+
+    /** Zwischenspeicher verwerfen, z. B. nach dem Einspielen einer Datensicherung. */
+    fun invalidate() { cache = null }
 
     /** Zuordnungen mitnehmen, wenn ein Kunde umbenannt wird. */
     fun renameCustomer(ctx: Context, from: String, to: String): Boolean {
