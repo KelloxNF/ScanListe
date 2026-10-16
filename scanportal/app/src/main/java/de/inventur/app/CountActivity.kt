@@ -146,6 +146,7 @@ class CountActivity : AppCompatActivity() {
     internal fun closeArticle() {
         if (cur == null) return
         cur = null
+        overview.renderChips()   // z. B. „Nachzählung (n offen)“ aktualisieren
         overview.view.visibility = View.VISIBLE
         val detail = article.view
         detail.animate().translationX(detail.width.toFloat()).setDuration(220).withEndAction { detail.visibility = View.GONE }.start()
@@ -240,9 +241,9 @@ class CountActivity : AppCompatActivity() {
             .setPositiveButton("Nachzählen") { _, _ ->
                 val skus = session.startRecount()
                 if (skus == null) { saveFailed(); return@setPositiveButton }
-                overview.showOnly(StateKey.OPEN)
+                overview.showRecount()
                 invalidateOptionsMenu()
-                toastShort("${skus.size} Artikel zum Nachzählen – Filter „Nicht gezählt“ ist aktiv.")
+                toastShort("${skus.size} Artikel zum Nachzählen – Filter „Nachzählung“ ist aktiv.")
             }
             .setNegativeButton("Abbrechen", null)
             .show()

@@ -230,7 +230,7 @@ class SmokeTest {
             sc.onActivity { act ->
                 val skus = act.session.startRecount()!!
                 assertTrue(skus.isNotEmpty())
-                act.overview.showOnly(StateKey.OPEN)
+                act.overview.showRecount()
             }
             instr.waitForIdleSync(); Thread.sleep(400)
             shot("10_nachzaehlung")

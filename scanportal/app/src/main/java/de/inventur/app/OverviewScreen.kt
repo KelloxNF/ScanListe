@@ -50,16 +50,21 @@ class OverviewScreen(private val host: CountActivity) {
         set(v) {
             field = v
             chipsScroll.visibility = if (v) View.VISIBLE else View.GONE
-            if (!v) { chipFilter = null; renderChips() }
+            if (!v) { chipFilter = null; recountFilter = false; renderChips() }
             render()
         }
 
     private var chipFilter: StateKey? = null   // null = Alle
 
-    /** Filterleiste einblenden und auf [k] stellen (z. B. nach dem Start einer Nachzählung). */
-    fun showOnly(k: StateKey?) {
+    /** Filter „Nachzählung“: nur Artikel mit festgehaltener 1. Zählung. */
+    private var recountFilter = false
+    private lateinit var recountChip: Button
+
+    /** Filterleiste einblenden und „Nachzählung“ wählen (nach dem Start einer Nachzählung). */
+    fun showRecount() {
         chipsVisible = true
-        chipFilter = k
+        chipFilter = null
+        recountFilter = true
         renderChips()
         render()
     }
@@ -133,11 +138,20 @@ class OverviewScreen(private val host: CountActivity) {
                 minHeight = 0; minimumHeight = 0
                 setPadding(dp(12), 0, dp(12), 0)
                 stateListAnimator = null
-                setOnClickListener { chipFilter = k; renderChips(); render() }
+                setOnClickListener { chipFilter = k; recountFilter = false; renderChips(); render() }
             }
             chipViews[k] = b
             chips.addView(b, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)).apply { marginEnd = dp(6) })
         }
+        recountChip = Button(this).apply {
+            isAllCaps = false
+            textSize = 13f
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(12), 0, dp(12), 0)
+            stateListAnimator = null
+            setOnClickListener { chipFilter = null; recountFilter = true; renderChips(); render() }
+        }
+        chips.addView(recountChip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)).apply { marginEnd = dp(6) })
         chipsScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             addView(chips)
@@ -169,16 +183,28 @@ class OverviewScreen(private val host: CountActivity) {
 
     /** Beschriftung (Blindzählung: „Gezählt“) und Hervorhebung der Filter-Chips. */
     fun renderChips() = with(host) {
-        for ((k, b) in chipViews) {
-            b.text = k?.let { session.label(it) } ?: "Alle"
-            val on = k == chipFilter
+        fun paint(b: Button, on: Boolean) {
             b.background = rounded(if (on) Colors.brand else Colors.cardBg, 16f, if (on) Colors.brand else Colors.line)
             b.setTextColor(if (on) Color.WHITE else Colors.appFg)
         }
+        for ((k, b) in chipViews) {
+            b.text = k?.let { session.label(it) } ?: "Alle"
+            paint(b, !recountFilter && k == chipFilter)
+        }
+        val firsts = inv.firstCounts
+        if (firsts.isEmpty()) recountFilter = false
+        recountChip.visibility = if (firsts.isEmpty()) View.GONE else View.VISIBLE
+        val open = firsts.keys.count { inv.counted(it) == null }
+        recountChip.text = "Nachzählung ($open offen)"
+        paint(recountChip, recountFilter)
     }
 
     fun render() {
-        val base = if (showAll) inv.articles.toList() else inv.listArticles()
+        val base = when {
+            recountFilter -> inv.articles.filter { it.sku in inv.firstCounts }   // auch Soll-0-Artikel, die zurückgesetzt wurden
+            showAll -> inv.articles.toList()
+            else -> inv.listArticles()
+        }
         val q = query.lowercase()
         visible = base.filter { a ->
             (q.isEmpty() || a.name.lowercase().contains(q) || a.sku.lowercase().contains(q)) &&
