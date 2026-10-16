@@ -35,7 +35,15 @@ jobs:
 
       - name: Tests (Import, Zähllogik, CSV)
         run: |
-          gradle testDebugUnitTest --no-daemon
+          set -o pipefail
+          # Bei Fehlern Compiler- und Testmeldungen als Anmerkungen ausgeben (Log ist sonst nur im Browser lesbar)
+          if ! gradle testDebugUnitTest --no-daemon 2>&1 | tee ../unit.log; then
+            grep -E "^e: |FAILED$" ../unit.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            for f in app/build/test-results/testDebugUnitTest/*.xml; do
+              [ -f "$f" ] && grep -q "<failure" "$f" && echo "::error::$(grep -A4 '<failure' "$f" | head -6 | tr '\n' ' ' | cut -c1-900)"
+            done
+            exit 1
+          fi
           T=$(cat app/build/test-results/testDebugUnitTest/*.xml | grep -o '<testsuite [^>]*' | grep -oE 'tests="[0-9]+"' | grep -oE '[0-9]+' | paste -sd+ | bc)
           F=$(cat app/build/test-results/testDebugUnitTest/*.xml | grep -o '<testsuite [^>]*' | grep -oE 'failures="[0-9]+"' | grep -oE '[0-9]+' | paste -sd+ | bc)
           echo "::notice title=Tests::$T Tests ausgeführt, $F fehlgeschlagen"
