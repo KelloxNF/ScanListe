@@ -100,7 +100,7 @@ object ListStore {
         return infoOf(list)
     }
 
-    private fun toJson(list: ScanList): JSONObject = JSONObject().apply {
+    internal fun toJson(list: ScanList): JSONObject = JSONObject().apply {
         put("id", list.id)
         put("name", list.name)
         put("columns", JSONArray(list.columns))
@@ -131,7 +131,7 @@ object ListStore {
         })
     }
 
-    private fun fromJson(o: JSONObject): ScanList {
+    internal fun fromJson(o: JSONObject): ScanList {
         val columns = o.getJSONArray("columns").let { a -> MutableList(a.length()) { a.getString(it) } }
         val rowsJson = o.getJSONArray("rows")
         val rows = MutableList(rowsJson.length()) { i ->
