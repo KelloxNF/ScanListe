@@ -27,6 +27,7 @@ Jede Version ist mit demselben Schlüssel (`app/scanportal.keystore`) signiert. 
   Anzahl, Bemerkung, allen Werten, Seitenzahlen und Unterschriftslinien „Gepackt von / Geprüft von“,
   dazu eine Seite mit QR-Codes zum Einlesen beim Empfänger.
 - **Wareneingang:** den QR-Code einer Packliste in einer Liste scannen → die Geräte werden zur Soll-Liste.
+  Geräte der Soll-Liste lösen keine „steht auch in Liste …“-Warnung aus.
 - **Vorlagen** (⋮ → „Als Vorlage speichern …“, dann + in der Übersicht) und **Nächste Palette**
   (wird bei erreichter Zielmenge angeboten, Name zählt hoch: „Palette 4“ → „Palette 5“).
 - **Liste abschließen** (⋮ oder lange drücken in der Übersicht): nimmt keine Scans mehr an.
