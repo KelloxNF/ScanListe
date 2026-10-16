@@ -135,7 +135,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <h1>Scan-Portal</h1>
       <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
       <div class="facts">
-        <span>Stand <b>Version 1.27</b> · 16.10.2026</span>
+        <span>Stand <b>Version 1.28</b> · 16.10.2026</span>
         <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
         <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
         <span>Komplett <b>offline</b></span>
@@ -266,7 +266,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <li>Bei einem Multidata-QR-Code nennt die Meldung den ersten Treffer und die Zahl der weiteren („+2 weitere“).</li>
             <li>Ein Duplikat in <em>derselben</em> Liste wird wie bisher rot abgelehnt.</li>
           </ul></dd>
-          <dt>Wie</dt><dd><p>Beim Öffnen der Liste lädt ein Hintergrund-Thread alle anderen Listen und baut einen Index Wert → (Listenname, Zeile, Erfassungszeit). Gibt es einen Wert mehrfach, gewinnt die älteste Liste. Die Suche je Scan ist ein Nachschlagen im Index, also ohne Verzögerung, auch bei vielen Listen. Groß- und Kleinschreibung zählt wie innerhalb einer Liste.</p></dd>
+          <dt>Wie</dt><dd><p>Beim Öffnen der Liste lädt ein Hintergrund-Thread alle anderen Listen und baut einen Index Wert → (Listenname, Zeile, Erfassungszeit). Gibt es einen Wert mehrfach, gewinnt die älteste Liste. Die gelesenen Werte bleiben je Datei im Speicher; beim nächsten Öffnen wird nur neu eingelesen, was sich seitdem geändert hat (Änderungszeit und Größe der Datei). Die Suche je Scan ist ein Nachschlagen im Index, also ohne Verzögerung, auch bei vielen Listen. Groß- und Kleinschreibung zählt wie innerhalb einer Liste.</p></dd>
           <dt class="why">Warum</dt><dd><p>Ein Gerät, das versehentlich auf zwei Paletten landet, fällt sonst erst beim Kunden auf. Gesperrt wird nicht, weil dasselbe Gerät berechtigt in mehreren Listen stehen kann, etwa in einer Eingangs- und einer Ausgangsliste.</p></dd>
         </dl>
       </article>
@@ -357,7 +357,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <li>Am Ende „Gesamt: n Geräte“ und zwei Unterschriftslinien „Gepackt von“ / „Geprüft von“; jede Seite hat eine Fußzeile mit „Seite x von y“.</li>
             <li>Dateiname <code>Packliste_Bezeichnung_JJJJ-MM-TT.pdf</code>. Gezählt werden Zeilen; bei zwei Spalten (Seriennummer, PON-SN) ist eine Zeile ein Gerät.</li>
           </ul></dd>
-          <dt>Wie</dt><dd><p>Androids <code>PdfDocument</code> zeichnet die Seiten, ganz ohne Internet. Erste Seite 36 Zeilen, Folgeseiten 47, Tabellenkopf auf jeder Seite wiederholt. Passen die Unterschriften nicht mehr unter die letzte Zeile, kommen sie auf eine eigene Seite. Die PDF entsteht im Hintergrund aus einer Kopie der Liste, man kann also weiterscannen.</p></dd>
+          <dt>Wie</dt><dd><p>Androids <code>PdfDocument</code> zeichnet die Seiten, ganz ohne Internet. Erste Seite 36 Zeilen, Folgeseiten 47, Tabellenkopf auf jeder Seite wiederholt. Passen die Unterschriften nicht mehr unter die letzte Zeile, kommen sie auf eine eigene Seite. Die PDF entsteht im Hintergrund aus einer unveränderlichen Kopie der Werte (<code>PackSheet</code>), man kann also weiterscannen. Zu lange Werte werden in der Zelle mit „…“ gekürzt.</p></dd>
           <dt class="why">Warum</dt><dd><p>Mit dem Blatt kann der Empfänger die Palette ohne Datei prüfen, und die Unterschriften zeigen, wer gepackt und kontrolliert hat.</p></dd>
         </dl>
       </article>
@@ -648,11 +648,11 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <tr><td><code>ListActivity</code></td><td>Liste, Scan-Verarbeitung, Rückmeldung, Menü</td><td class="num">518</td></tr>
             <tr><td><code>ScanList</code></td><td>Datenmodell und Regeln: Erfassen, Multidata, Prüfungen, Rückgängig</td><td class="num">300</td></tr>
             <tr><td><code>MainActivity</code></td><td>Listen-Übersicht, Anlegen, Umbenennen, Löschen</td><td class="num">216</td></tr>
-            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste, Packliste</td><td class="num">276</td></tr>
-            <tr><td><code>PackList</code></td><td>Packliste als PDF, Seitenaufteilung</td><td class="num">152</td></tr>
-            <tr><td><code>ListStore</code></td><td>Speichern/Laden der Listen</td><td class="num">167</td></tr>
+            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste, Packliste</td><td class="num">273</td></tr>
+            <tr><td><code>PackList</code></td><td>Packliste als PDF, Seitenaufteilung, unveränderliche Kopie (PackSheet)</td><td class="num">167</td></tr>
+            <tr><td><code>ListStore</code></td><td>Speichern/Laden der Listen</td><td class="num">173</td></tr>
             <tr><td><code>Csv</code></td><td>CSV-Aufbau und Dateiname</td><td class="num">50</td></tr>
-            <tr><td><code>OtherLists</code></td><td>Index aller anderen Listen für die Warnung</td><td class="num">42</td></tr>
+            <tr><td><code>OtherLists</code></td><td>Index aller anderen Listen für die Warnung, mit Cache je Datei</td><td class="num">69</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/inventur/app – Inventur</th></tr>
             <tr><td><code>Documents</code></td><td>Anschreiben, Zählliste (PDF), Ergebnis-CSV</td><td class="num">351</td></tr>
             <tr><td><code>CountActivity</code></td><td>verbindet Zähl-Teile, Scan-Routing, Menü</td><td class="num">288</td></tr>
@@ -680,7 +680,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <div class="tbl"><table>
               <thead><tr><th>Prüfung</th><th>Umfang</th></tr></thead>
               <tbody>
-                <tr><td>Unit-Tests (65)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, vollständiges Speichern/Laden</td></tr>
+                <tr><td>Unit-Tests (66)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, vollständiges Speichern/Laden</td></tr>
                 <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast, die Warnung „steht auch in Liste …“, Packlisten (eine und mehrere Seiten) und eine Datensicherung mit Einspielen</td></tr>
                 <tr><td>Lint</td><td>Androids Prüfwerkzeug bei jeder Änderung</td></tr>
                 <tr><td>Offline-Prüfung</td><td>Berechtigungen, Sicherung und Debug-Status der fertigen APK</td></tr>
@@ -726,6 +726,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <div class="tbl"><table>
         <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
         <tbody>
+          <tr><td class="num">1.28</td><td>16.10.2026</td><td>Fehler- und Leistungsprüfung: Abgleich über alle Listen liest nur geänderte Dateien neu, Packliste aus fester Kopie, PDF-Puffer werden auch bei Fehlern freigegeben</td></tr>
           <tr><td class="num">1.27</td><td>16.10.2026</td><td>Warnung bei Geräten aus anderen Listen; Packliste als PDF</td></tr>
           <tr><td class="num">1.26</td><td>16.10.2026</td><td>Genexis-Scan heißt Multidata-QR-Code</td></tr>
           <tr><td class="num">1.24–1.25</td><td>16.10.2026</td><td>Datensicherung im Hintergrund</td></tr>
@@ -739,7 +740,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
         </tbody>
       </table></div>
-      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.27, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.28, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
     </section>
   </main>
 </div>
