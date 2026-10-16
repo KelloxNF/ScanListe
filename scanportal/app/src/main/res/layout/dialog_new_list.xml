@@ -55,7 +55,7 @@
         android:id="@+id/check_genexis"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Genexis-Scan" />
+        android:text="Multidata-QR-Code" />
 
     <TextView
         android:layout_width="match_parent"

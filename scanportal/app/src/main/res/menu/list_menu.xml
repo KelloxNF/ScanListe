@@ -21,7 +21,7 @@
     <item
         android:id="@+id/action_genexis"
         android:checkable="true"
-        android:title="Genexis-Scan (QR-Code paarweise)"
+        android:title="Multidata-QR-Code (paarweise)"
         app:showAsAction="never" />
 
     <item

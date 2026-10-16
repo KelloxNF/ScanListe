@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Genexis-Scan: QR-Code mit mehreren Werten, je zwei aufeinanderfolgende gehören in eine Zeile. */
+/** Multidata-QR-Code: QR-Code mit mehreren Werten, je zwei aufeinanderfolgende gehören in eine Zeile. */
 class GenexisScanTest {
     /** Inhalt des QR-Codes aus der echten Beispiel-Liste vom 15.10.2026 (10 Paare). */
     private val qr = listOf(

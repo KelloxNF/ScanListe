@@ -1,7 +1,7 @@
 # Scan-Portal – Listen scannen und Inventur in einer App für das Zebra TC22
 
 Beim Öffnen zeigt die App zwei Kacheln:
-- **Scannen** – Listen mit dem Scanner füllen (ohne Duplikate), als CSV exportieren; mit **Genexis-Scan** für QR-Codes mit Seriennummer/PON-SN-Paaren.
+- **Scannen** – Listen mit dem Scanner füllen (ohne Duplikate), als CSV exportieren; mit **Multidata-QR-Code** für QR-Codes mit mehreren Werten (z. B. Genexis: Seriennummer/PON-SN-Paare).
 - **Inventur** – Jahresinventur je Kunde: Systembestand importieren, zählen, Anschreiben und Zählliste als PDF, Ergebnis als CSV.
 
 Die App läuft komplett offline (keine Internet-Berechtigung, keine Cloud-Sicherung). Die ausführliche
@@ -17,7 +17,7 @@ Jede Version ist mit demselben Schlüssel (`app/scanportal.keystore`) signiert. 
 ## Scannen (Listen)
 - Spalten frei wählbar; bei mehreren Spalten füllt jeder Scan die Zeile von links nach rechts.
 - Doppelte Werte werden abgewiesen (Fehlerton, Sprung zur Zeile).
-- **Genexis-Scan** (beim Anlegen oder ⋮ in einer Liste mit genau 2 Spalten): Ein QR-Code mit mehreren
+- **Multidata-QR-Code** (beim Anlegen oder ⋮ in einer Liste mit genau 2 Spalten): Ein QR-Code mit mehreren
   Werten wird paarweise auf Zeilen verteilt (1.+2. Wert → Zeile 1 usw.). Alles oder nichts bei ungerader
   Anzahl, halbem Paar oder anderem Partner; einzelne Barcodes werden abgelehnt; bereits erfasste Paare
   übersprungen. „Rückgängig“ nimmt immer ganze Zeilen zurück.
@@ -47,5 +47,5 @@ GitHub Actions baut bei jedem Push auf `scan-portal`:
 | Ordner | Inhalt |
 |---|---|
 | `de/scanportal/app` | Startbildschirm, Scanner-Einrichtung, gemeinsame Bausteine (sicheres Speichern, Töne, CSV, Teilen) |
-| `de/scanliste/app` | Scannen: Listen, Genexis-Scan, CSV |
+| `de/scanliste/app` | Scannen: Listen, Multidata-QR-Code, CSV |
 | `de/inventur/app` | Inventur: Import, Zähl-Logik (`CountSession`), Zähl-Ansicht (`OverviewScreen`, `ArticleScreen`, `ArticleSheets`), PDF-Dokumente, CSV |

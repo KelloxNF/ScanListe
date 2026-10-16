@@ -31,7 +31,7 @@ data class ColumnRule(val prefixes: List<String> = emptyList(), val length: Int?
     }
 }
 
-/** Ergebnis eines Genexis-Scans (QR-Code mit mehreren Werten, je zwei gehören zusammen). */
+/** Ergebnis eines Multidata-QR-Codes (QR-Code mit mehreren Werten, je zwei gehören zusammen). */
 sealed class PairResult {
     /** [rows] neue Zeilen ab [firstRow]; [skipped] Paare standen schon vollständig in der Liste. */
     data class Added(val firstRow: Int, val rows: Int, val skipped: Int) : PairResult()
@@ -71,7 +71,7 @@ class ScanList(
     val created: Long = System.currentTimeMillis(),
     var updated: Long = created,
     /**
-     * Genexis-Scan: Ein QR-Code mit mehreren Werten (je Zeile ein Wert) wird in Paare zerlegt –
+     * Multidata-QR-Code: Ein QR-Code mit mehreren Werten (je Zeile ein Wert) wird in Paare zerlegt –
      * 1.+2. Wert, 3.+4. Wert … Jedes Paar kommt in eine eigene Zeile (1. Spalte / 2. Spalte).
      */
     var genexis: Boolean = false,
@@ -168,12 +168,12 @@ class ScanList(
     }
 
     /**
-     * Genexis-Scan: übernimmt [values] paarweise, jedes Paar in eine neue Zeile.
+     * Multidata-QR-Code: übernimmt [values] paarweise, jedes Paar in eine neue Zeile.
      * Alles oder nichts – bei einem Problem wird kein einziger Wert übernommen, damit kein Paar
      * auseinandergerissen wird. Paare, die schon vollständig in der Liste stehen, werden übersprungen.
      */
     fun addPairs(values: List<String>): PairResult {
-        if (columns.size < 2) return PairResult.Rejected("Genexis-Scan braucht 2 Spalten.")
+        if (columns.size < 2) return PairResult.Rejected("Multidata-QR-Code braucht 2 Spalten.")
         if (values.size % 2 != 0) {
             return PairResult.Rejected("${values.size} Werte im QR-Code – ungerade Anzahl, Paare unvollständig. Nichts übernommen.")
         }
@@ -245,7 +245,7 @@ class ScanList(
 
     // ------------------------------------------------------------ Zurücknehmen
 
-    /** Entfernt die letzten [count] Zeilen (für „Rückgängig“ nach einem Genexis-Scan). */
+    /** Entfernt die letzten [count] Zeilen (für „Rückgängig“ nach einem Multidata-QR-Code). */
     fun removeLastRows(count: Int): Int {
         var n = 0
         while (n < count && rows.isNotEmpty()) {
@@ -259,7 +259,7 @@ class ScanList(
     /**
      * „Letzten Scan rückgängig“. [lastScanRows] = Zeilen des zuletzt gemerkten Scans
      * (0 = ein Einzelwert, > 0 = ein Genexis-QR-Code, null = nichts gemerkt, z. B. nach Neustart).
-     * Im Genexis-Modus werden immer ganze Zeilen entfernt – nie ein halbes Paar.
+     * Im Multidata-Modus werden immer ganze Zeilen entfernt – nie ein halbes Paar.
      * null = Liste war leer.
      */
     fun undoScan(lastScanRows: Int?): Undone? {

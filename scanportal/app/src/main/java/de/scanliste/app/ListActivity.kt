@@ -51,7 +51,7 @@ class ListActivity : AppCompatActivity() {
 
     /**
      * Was „Letzten Scan rückgängig“ zurücknimmt, jüngster Scan zuletzt:
-     * 0 = ein einzelner Wert, n > 0 = n Zeilen aus einem Genexis-Scan. Gilt für diese Sitzung.
+     * 0 = ein einzelner Wert, n > 0 = n Zeilen aus einem Multidata-QR-Code. Gilt für diese Sitzung.
      */
     private val undoStack = ArrayDeque<Int>()
 
@@ -152,8 +152,8 @@ class ListActivity : AppCompatActivity() {
             val parts = ScanList.splitValues(raw)
             if (parts.size > 1) return handlePairs(parts)
             if (parts.isEmpty()) return false
-            // Genexis-Scan nimmt nur QR-Codes mit mehreren Werten – ein Einzelwert würde ein Paar zerreißen
-            showFeedback("✗ Kein Genexis-QR-Code: \"${short(raw)}\" ist nur ein einzelner Wert. Nicht übernommen.", error = true)
+            // Multidata-QR-Code nimmt nur QR-Codes mit mehreren Werten – ein Einzelwert würde ein Paar zerreißen
+            showFeedback("✗ Kein Multidata-QR-Code: \"${short(raw)}\" ist nur ein einzelner Wert. Nicht übernommen.", error = true)
             tones.error()
             return false
         }
@@ -186,7 +186,7 @@ class ListActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
                 val typeInfo = if (type != null) " ($type)" else ""
                 val many = ScanList.splitValues(raw).size
-                val hint = if (many > 1 && list.columns.size == 2) " · QR-Code mit $many Werten in einer Zelle – für Paare ⋮ → Genexis-Scan" else ""
+                val hint = if (many > 1 && list.columns.size == 2) " · QR-Code mit $many Werten in einer Zelle – für Paare ⋮ → Multidata-QR-Code" else ""
                 showFeedback("✓ ${short(raw)}$typeInfo$hint${targetNote()}", error = false)
                 signalOk()
                 scrollToEnd()
@@ -196,7 +196,7 @@ class ListActivity : AppCompatActivity() {
         }
     }
 
-    /** Genexis-Scan: QR-Code mit mehreren Werten paarweise auf Zeilen verteilen. */
+    /** Multidata-QR-Code: QR-Code mit mehreren Werten paarweise auf Zeilen verteilen. */
     private fun handlePairs(parts: List<String>): Boolean {
         return when (val r = list.addPairs(parts)) {
             is PairResult.Rejected -> {
@@ -268,7 +268,7 @@ class ListActivity : AppCompatActivity() {
         val (r, c) = list.nextSlot()
         val next = if (list.columns.size > 1) "Zeile ${r + 1} → ${list.columns[c]}" else "Zeile ${r + 1}"
         val parts = mutableListOf<String>()
-        if (list.genexis) parts += "Genexis-Scan"
+        if (list.genexis) parts += "Multidata-QR-Code"
         list.target?.let { parts += "Ziel: ${list.completeRows()} von $it" }
         if (list.expected.isNotEmpty()) parts += "Soll-Liste: ${list.foundExpected()} von ${list.expected.size}"
         if (list.rules.any { it != null }) parts += "Formatprüfung"
@@ -325,7 +325,7 @@ class ListActivity : AppCompatActivity() {
         invalidateOptionsMenu()
         updateStatus()
         showFeedback(
-            if (list.genexis) "Genexis-Scan an: nur QR-Codes mit mehreren Werten, paarweise auf Zeilen verteilt" else "Genexis-Scan aus",
+            if (list.genexis) "Multidata-QR-Code an: nur QR-Codes mit mehreren Werten, paarweise auf Zeilen verteilt" else "Multidata-QR-Code aus",
             error = false,
         )
     }

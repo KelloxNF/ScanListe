@@ -111,7 +111,7 @@ class MainActivity : AppCompatActivity() {
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .ifEmpty { listOf("Seriennummer") }
-                // Genexis-Scan braucht genau zwei Spalten: eine je Wert des Paars
+                // Multidata-QR-Code braucht genau zwei Spalten: eine je Wert des Paars
                 if (genexis.isChecked && columns.size != 2) columns = GENEXIS_COLUMNS.split(", ")
                 val list = ScanList(
                     id = ListStore.newId(),

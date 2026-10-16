@@ -104,7 +104,7 @@ class SmokeTest {
         ActivityScenario.launch(PortalActivity::class.java).use { shot("0_portal") }
         ActivityScenario.launch(de.scanliste.app.MainActivity::class.java).use { shot("0_scanliste") }
 
-        // Genexis-Scan: ein QR-Code mit 3 Paaren landet in 3 Zeilen
+        // Multidata-QR-Code: ein QR-Code mit 3 Paaren landet in 3 Zeilen
         val gx = de.scanliste.app.ScanList(
             de.scanliste.app.ListStore.newId(), "Genexis Test", mutableListOf("Seriennummer", "PON-SN"),
             withTimestamp = true, genexis = true,
@@ -116,7 +116,7 @@ class SmokeTest {
             ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
                 .putExtra(DataWedge.EXTRA_DATA, "GNXS05DFA614\nZ.0225460513\nGNXS05DFA61A\nZ.0225460516\nGNXS05DFA6EE\nZ.0225460580"))
             instr.waitForIdleSync(); Thread.sleep(600)
-            // Einzelner Barcode im Genexis-Modus: Fehlermeldung, nichts übernehmen
+            // Einzelner Barcode im Multidata-Modus: Fehlermeldung, nichts übernehmen
             ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
                 .putExtra(DataWedge.EXTRA_DATA, "4006381333931"))
             instr.waitForIdleSync(); Thread.sleep(600)
