@@ -34,7 +34,7 @@ object ListReports {
                 if (row.cells.all { it.isEmpty() }) continue
                 val cells = MutableList(columns.size) { "" }
                 row.cells.forEachIndexed { i, v -> pos.getOrNull(i)?.let { p -> if (cells[p].isEmpty()) cells[p] = v } }
-                val line = mutableListOf(l.name, (++nr).toString()) + cells
+                val line = mutableListOf(l.name, (++nr).toString()).apply { addAll(cells) }
                 if (withTime) line += if (l.withTimestamp) Csv.formatTime(row.time) else ""
                 sb.append(ExcelCsv.line(line))
             }
