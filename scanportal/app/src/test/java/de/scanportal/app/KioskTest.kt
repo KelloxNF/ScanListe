@@ -23,4 +23,12 @@ class KioskTest {
         assertNotEquals(Kiosk.hash("1234", "s"), Kiosk.hash("1235", "s"))
         assertEquals(64, Kiosk.hash("1234", "s").length)
     }
+
+    @Test fun lockoutGrowsAndIsCapped() {
+        assertEquals(0L, Kiosk.lockoutMillis(4))
+        assertEquals(30_000L, Kiosk.lockoutMillis(5))
+        assertEquals(60_000L, Kiosk.lockoutMillis(6))
+        assertEquals(15 * 60_000L, Kiosk.lockoutMillis(20))
+        assertEquals(15 * 60_000L, Kiosk.lockoutMillis(Int.MAX_VALUE))
+    }
 }

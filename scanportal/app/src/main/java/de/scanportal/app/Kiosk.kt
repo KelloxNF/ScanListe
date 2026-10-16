@@ -28,6 +28,8 @@ object Kiosk {
     private const val KEY_ON = "on"
     private const val KEY_HASH = "pin_hash"
     private const val KEY_SALT = "pin_salt"
+    private const val KEY_FAILS = "fails"
+    private const val KEY_UNTIL = "locked_until"
 
     /** Beim App-Start und nach dem Teilen soll wieder angeheftet werden – nicht bei jedem Bildschirmwechsel. */
     @Volatile internal var relockWanted = true
@@ -48,6 +50,30 @@ object Kiosk {
         MessageDigest.getInstance("SHA-256").digest("$salt:$pin".toByteArray()).joinToString("") { "%02x".format(it) }
 
     private fun newSalt(): String = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
+
+    /**
+     * Wartezeit nach [fails] Fehlversuchen in Folge: die ersten 4 frei, dann 30 s, 60 s, 120 s …
+     * höchstens 15 Minuten – Durchprobieren aller 4-stelligen PINs dauert so Tage.
+     */
+    fun lockoutMillis(fails: Int): Long =
+        if (fails < 5) 0L else minOf(30_000L shl minOf(fails - 5, 10), 15 * 60_000L)
+
+    /** Restliche Sperrzeit nach zu vielen Fehlversuchen (0 = PIN darf eingegeben werden). */
+    fun lockedFor(ctx: Context, now: Long = System.currentTimeMillis()): Long =
+        maxOf(0L, prefs(ctx).getLong(KEY_UNTIL, 0L) - now)
+
+    /** Prüft die PIN und zählt Fehlversuche (mit Wartezeit, siehe [lockoutMillis]). */
+    fun tryPin(ctx: Context, pin: String): Boolean {
+        if (lockedFor(ctx) > 0) return false
+        val ok = checkPin(ctx, pin)
+        val p = prefs(ctx)
+        if (ok) p.edit().remove(KEY_FAILS).remove(KEY_UNTIL).apply()
+        else {
+            val fails = p.getInt(KEY_FAILS, 0) + 1
+            p.edit().putInt(KEY_FAILS, fails).putLong(KEY_UNTIL, System.currentTimeMillis() + lockoutMillis(fails)).apply()
+        }
+        return ok
+    }
 
     fun checkPin(ctx: Context, pin: String): Boolean {
         val p = prefs(ctx)
@@ -109,13 +135,22 @@ object Kiosk {
     /** Führt [action] aus – im Sperrmodus erst nach richtiger PIN. */
     fun requirePin(activity: Activity, what: String, action: () -> Unit) {
         if (!isOn(activity)) { action(); return }
+        val wait = lockedFor(activity)
+        if (wait > 0) {
+            Toast.makeText(activity, "Zu viele falsche PINs – bitte in ${(wait + 999) / 1000} s erneut versuchen.", Toast.LENGTH_LONG).show()
+            return
+        }
         val f = pinField(activity, "PIN")
         AlertDialog.Builder(activity)
             .setTitle("PIN für „$what“")
             .setView(box(activity, note(activity, "Der Sperrmodus ist an."), f))
             .setPositiveButton("OK") { _, _ ->
-                if (checkPin(activity, f.text.toString())) action()
-                else Toast.makeText(activity, "Falsche PIN", Toast.LENGTH_SHORT).show()
+                if (tryPin(activity, f.text.toString())) action()
+                else {
+                    val w = lockedFor(activity)
+                    Toast.makeText(activity, if (w > 0) "Falsche PIN – nächster Versuch in ${(w + 999) / 1000} s" else "Falsche PIN",
+                        Toast.LENGTH_SHORT).show()
+                }
             }
             .setNegativeButton("Abbrechen", null)
             .show()
