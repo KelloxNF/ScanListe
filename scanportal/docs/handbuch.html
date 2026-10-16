@@ -135,7 +135,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <h1>Scan-Portal</h1>
       <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
       <div class="facts">
-        <span>Stand <b>Version 1.34</b> · 16.10.2026</span>
+        <span>Stand <b>Version 1.35</b> · 16.10.2026</span>
         <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
         <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
         <span>Komplett <b>offline</b></span>
@@ -352,7 +352,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
         <dl class="wwww">
           <dt>Wo</dt><dd><p>In der Liste ⋮ → „Packliste (PDF) …“.</p></dd>
           <dt>Was</dt><dd><ul>
-            <li>Dialog: Bezeichnung (vorbelegt mit dem Listennamen), Kunde / Empfänger (der zuletzt eingegebene wird vorgeschlagen), Bemerkung (optional). Dann „Teilen“ oder „Speichern …“.</li>
+            <li>Dialog: Bezeichnung (vorbelegt mit dem Listennamen), Kunde / Empfänger (vorbelegt mit dem zuletzt benutzten; Feld antippen zeigt Vorschläge: zuletzt benutzte Kunden zuerst, dann alle Kunden aus den Inventuren – für einheitliche Schreibweisen), Bemerkung (optional). Dann „Teilen“ oder „Speichern …“.</li>
             <li>A4-Blatt zum Beilegen zur Palette: Absenderzeile aus den Einstellungen, Titel „Packliste“, Kopf mit Bezeichnung, Kunde, Datum, Anzahl Geräte und Bemerkung, darunter eine Tabelle mit Nr. und allen Spalten der Liste.</li>
             <li>Am Ende „Gesamt: n Geräte“ und zwei Unterschriftslinien „Gepackt von“ / „Geprüft von“; jede Seite hat eine Fußzeile mit „Seite x von y“.</li>
             <li>Dateiname <code>Packliste_Bezeichnung_JJJJ-MM-TT.pdf</code>. Gezählt werden Zeilen; bei zwei Spalten (Seriennummer, PON-SN) ist eine Zeile ein Gerät.</li>
@@ -425,7 +425,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <dt>Wo</dt><dd><p>Listen-Übersicht ⋮ → „Sammelexport …“, Listen ankreuzen.</p></dd>
           <dt>Was</dt><dd><ul>
             <li><b>CSV teilen:</b> eine Datei mit Spalte „Liste“ vorne, dann Nr und alle Spalten; gleich benannte Spalten verschiedener Listen werden zusammengelegt (kommt ein Name in einer Liste doppelt vor, wird daraus „Name (2)“), Zeitstempel falls vorhanden.</li>
-            <li><b>Packliste (PDF):</b> Bezeichnung, Kunde, Bemerkung eingeben → Übersichtsseite „Sammel-Packliste“ (Liste und Geräte je Liste, Gesamt, Unterschriften), danach je Liste eine vollständige Packliste mit QR-Codes – zum Beilegen zu jeder Palette.</li>
+            <li><b>Packliste (PDF):</b> Bezeichnung, Kunde (mit denselben Vorschlägen wie bei der Packliste), Bemerkung eingeben → Übersichtsseite „Sammel-Packliste“ (Liste und Geräte je Liste, Gesamt, Unterschriften), danach je Liste eine vollständige Packliste mit QR-Codes – zum Beilegen zu jeder Palette.</li>
           </ul></dd>
           <dt>Wie</dt><dd><p>Laden und Schreiben laufen im Hintergrund. Seitenzahlen zählen über die ganze PDF („Seite 3 von 7“). Zeitangaben werden mit dem threadsicheren <code>DateTimeFormatter</code> formatiert, weil der Export im Hintergrund läuft, während die Übersicht dieselbe Funktion nutzt.</p></dd>
           <dt class="why">Warum</dt><dd><p>Ein Auftrag besteht oft aus mehreren Paletten; der Kunde bekommt eine Datei statt vieler.</p></dd>
@@ -758,6 +758,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <tr><td><code>OverviewTools</code></td><td>Übersicht: Vorlagen, Sammelexport, Tagesbericht</td><td class="num">238</td></tr>
             <tr><td><code>ListReports</code></td><td>Sammel-CSV, Tagesbericht (Rechnung, PDF, CSV)</td><td class="num">197</td></tr>
             <tr><td><code>Templates</code></td><td>Vorlagen und Namens-Nummerierung</td><td class="num">147</td></tr>
+            <tr><td><code>CustomerPicker</code></td><td>Kundenfeld mit Vorschlägen (zuletzt benutzt, Inventur-Kunden)</td><td class="num">59</td></tr>
             <tr><td><code>PackCode</code></td><td>Inhalt der Packlisten-QR-Codes</td><td class="num">51</td></tr>
             <tr><td><code>OtherLists</code></td><td>Index aller anderen Listen für die Warnung, mit Cache je Datei</td><td class="num">69</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/inventur/app – Inventur</th></tr>
@@ -787,7 +788,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <div class="tbl"><table>
               <thead><tr><th>Prüfung</th><th>Umfang</th></tr></thead>
               <tbody>
-                <tr><td>Unit-Tests (76)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, Packlisten-QR, Vorlagen und Namen, Abschließen, Sammel-CSV, Tagesbericht, Fortschritt je Bereich, PIN des Sperrmodus inkl. Wartezeit nach Fehlversuchen, vollständiges Speichern/Laden</td></tr>
+                <tr><td>Unit-Tests (77)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, Packlisten-QR, Kundenvorschläge, Vorlagen und Namen, Abschließen, Sammel-CSV, Tagesbericht, Fortschritt je Bereich, PIN des Sperrmodus inkl. Wartezeit nach Fehlversuchen, vollständiges Speichern/Laden</td></tr>
                 <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast, die Warnung „steht auch in Liste …“, Packlisten (eine und mehrere Seiten, Sammel-Packliste), Wareneingang per QR-Code, abgeschlossene Liste, Folgepaletten-Angebot, Tagesbericht und eine Datensicherung mit Einspielen</td></tr>
                 <tr><td>Lint</td><td>Androids Prüfwerkzeug bei jeder Änderung</td></tr>
                 <tr><td>Offline-Prüfung</td><td>Berechtigungen, Sicherung und Debug-Status der fertigen APK</td></tr>
@@ -835,6 +836,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <div class="tbl"><table>
         <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
         <tbody>
+          <tr><td class="num">1.35</td><td>16.10.2026</td><td>Kunde bei Packliste und Sammel-Packliste aus Vorschlägen wählen</td></tr>
           <tr><td class="num">1.34</td><td>16.10.2026</td><td>Fehlerprüfung: Wartezeit nach 5 falschen PINs (gegen Durchprobieren)</td></tr>
           <tr><td class="num">1.32–1.33</td><td>16.10.2026</td><td>Sperrmodus: App anheften, PIN für Ausschalten, Inventur-Einstellungen und Datensicherung einspielen</td></tr>
           <tr><td class="num">1.31</td><td>16.10.2026</td><td>Absturz beim Angebot „Nächste Palette“ unter Android 10–12 behoben (vom Emulator-Test gefunden)</td></tr>
@@ -854,7 +856,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
         </tbody>
       </table></div>
-      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.34, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.35, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
     </section>
   </main>
 </div>
