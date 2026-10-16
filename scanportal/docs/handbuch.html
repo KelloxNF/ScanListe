@@ -135,7 +135,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <h1>Scan-Portal</h1>
       <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
       <div class="facts">
-        <span>Stand <b>Version 1.33</b> · 16.10.2026</span>
+        <span>Stand <b>Version 1.34</b> · 16.10.2026</span>
         <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
         <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
         <span>Komplett <b>offline</b></span>
@@ -712,7 +712,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <dt>Was</dt><dd><ul>
             <li>Einschalten mit einer PIN (4–8 Ziffern, zweimal eingeben). Die App wird mit Androids „App anpinnen“ festgeheftet: Home, Übersicht der zuletzt genutzten Apps und andere Apps sind gesperrt.</li>
             <li>Android fragt beim Anheften einmal nach („App angepinnt“) – mit <b>„Verstanden“</b> bestätigen.</li>
-            <li>Mit PIN geschützt, solange der Sperrmodus an ist: Sperrmodus ausschalten, Inventur-Einstellungen, Datensicherung einspielen.</li>
+            <li>Mit PIN geschützt, solange der Sperrmodus an ist: Sperrmodus ausschalten, Inventur-Einstellungen, Datensicherung einspielen. Nach 5 falschen PINs in Folge wartet die App 30 s, danach jeweils doppelt so lange (höchstens 15 Minuten).</li>
             <li>Teilen (E-Mail, Drive …) funktioniert weiter: die App löst das Anheften kurz und heftet beim Zurückkommen wieder an (Android fragt dann erneut). Speichern auf dem Gerät bleibt angeheftet.</li>
             <li>Nach einem Neustart der App wird automatisch wieder angeheftet.</li>
           </ul></dd>
@@ -744,7 +744,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <tr><td><code>PortalActivity</code></td><td>Startseite mit Kacheln, Datensicherung, Sperrmodus-Menü</td><td class="num">197</td></tr>
             <tr><td><code>Backup</code></td><td>Sichern, Prüfen, Einspielen</td><td class="num">157</td></tr>
             <tr><td><code>Common</code></td><td>Maße, Töne, Scan-Hinweis, Excel-CSV, Teilen</td><td class="num">137</td></tr>
-            <tr><td><code>Kiosk</code></td><td>Sperrmodus: Anheften, PIN, App-Klasse</td><td class="num">200</td></tr>
+            <tr><td><code>Kiosk</code></td><td>Sperrmodus: Anheften, PIN mit Sperre nach Fehlversuchen, App-Klasse</td><td class="num">235</td></tr>
             <tr><td><code>DataWedge</code></td><td>Scanner-Profil</td><td class="num">89</td></tr>
             <tr><td><code>SafeFile</code></td><td>sicheres Schreiben</td><td class="num">29</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/scanliste/app – Scannen</th></tr>
@@ -787,7 +787,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <div class="tbl"><table>
               <thead><tr><th>Prüfung</th><th>Umfang</th></tr></thead>
               <tbody>
-                <tr><td>Unit-Tests (75)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, Packlisten-QR, Vorlagen und Namen, Abschließen, Sammel-CSV, Tagesbericht, Fortschritt je Bereich, PIN des Sperrmodus, vollständiges Speichern/Laden</td></tr>
+                <tr><td>Unit-Tests (76)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, Packlisten-QR, Vorlagen und Namen, Abschließen, Sammel-CSV, Tagesbericht, Fortschritt je Bereich, PIN des Sperrmodus inkl. Wartezeit nach Fehlversuchen, vollständiges Speichern/Laden</td></tr>
                 <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast, die Warnung „steht auch in Liste …“, Packlisten (eine und mehrere Seiten, Sammel-Packliste), Wareneingang per QR-Code, abgeschlossene Liste, Folgepaletten-Angebot, Tagesbericht und eine Datensicherung mit Einspielen</td></tr>
                 <tr><td>Lint</td><td>Androids Prüfwerkzeug bei jeder Änderung</td></tr>
                 <tr><td>Offline-Prüfung</td><td>Berechtigungen, Sicherung und Debug-Status der fertigen APK</td></tr>
@@ -835,6 +835,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <div class="tbl"><table>
         <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
         <tbody>
+          <tr><td class="num">1.34</td><td>16.10.2026</td><td>Fehlerprüfung: Wartezeit nach 5 falschen PINs (gegen Durchprobieren)</td></tr>
           <tr><td class="num">1.32–1.33</td><td>16.10.2026</td><td>Sperrmodus: App anheften, PIN für Ausschalten, Inventur-Einstellungen und Datensicherung einspielen</td></tr>
           <tr><td class="num">1.31</td><td>16.10.2026</td><td>Absturz beim Angebot „Nächste Palette“ unter Android 10–12 behoben (vom Emulator-Test gefunden)</td></tr>
           <tr><td class="num">1.30</td><td>16.10.2026</td><td>Fehler- und Leistungsprüfung: threadsichere Zeitformate, lange Nummern im Listennamen, Sammel-CSV mit doppelten Spaltennamen, QR-Fehler abgefangen, keine Warnung für Werte der Soll-Liste, Hinweis auf fremde Werte beim Packlisten-Code</td></tr>
@@ -853,7 +854,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
         </tbody>
       </table></div>
-      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.33, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.34, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
     </section>
   </main>
 </div>

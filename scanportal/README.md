@@ -48,7 +48,7 @@ Jede Version ist mit demselben Schlüssel (`app/scanportal.keystore`) signiert. 
 ## Sperrmodus
 Startseite ⋮ → „Sperrmodus …“: PIN festlegen, die App wird angeheftet (Android fragt einmal, „Verstanden“).
 Dann sind andere Apps gesperrt; Ausschalten, Inventur-Einstellungen und Datensicherung einspielen brauchen
-die PIN. Teilen funktioniert weiter. Empfehlung: in Android unter Sicherheit → „App anpinnen“ die Option
+die PIN (nach 5 Fehlversuchen Wartezeit). Teilen funktioniert weiter. Empfehlung: in Android unter Sicherheit → „App anpinnen“ die Option
 „Vor dem Loslösen nach PIN fragen“ einschalten. Gilt je Gerät, nicht Teil der Datensicherung.
 
 ## Scanner (DataWedge)
