@@ -151,7 +151,8 @@ class OverviewScreen(private val host: CountActivity) {
             stateListAnimator = null
             setOnClickListener { chipFilter = null; recountFilter = true; renderChips(); render() }
         }
-        chips.addView(recountChip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)).apply { marginEnd = dp(6) })
+        // vorne, damit der aktive Nachzählungs-Filter ohne Wischen sichtbar ist
+        chips.addView(recountChip, 0, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)).apply { marginEnd = dp(6) })
         chipsScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             addView(chips)
