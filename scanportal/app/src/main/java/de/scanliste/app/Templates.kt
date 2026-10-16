@@ -63,7 +63,7 @@ object Naming {
         val prefix = m?.groupValues?.get(1) ?: (name.trim() + " ")
         val digits = m?.groupValues?.get(2)
         // BigInteger: auch eine lange Nummer (z. B. eine Seriennummer als Listenname) darf nicht überlaufen
-        var n = digits?.toBigInteger()?.inc() ?: java.math.BigInteger.TWO
+        var n = digits?.toBigInteger()?.inc() ?: java.math.BigInteger.valueOf(2)   // BigInteger.TWO gibt es erst ab Android 13
         while (true) {
             val num = if (digits != null) n.toString().padStart(digits.length, '0') else n.toString()
             val candidate = prefix + num

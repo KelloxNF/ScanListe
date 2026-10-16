@@ -71,6 +71,9 @@ jobs:
       - name: Ergebnis prüfen
         run: |
           cat instrument.txt
+          # Absturz oder Testfehler als Anmerkung, damit die Ursache ohne Log-Download sichtbar ist
+          [ -f shots/crash_log.txt ] && grep -m3 -E "Exception|Error" shots/crash_log.txt | while IFS= read -r l; do echo "::error title=Absturz::${l:0:400}"; done || true
+          grep -m3 -A2 -E "^[0-9]+\) |AssertionError" instrument.txt | while IFS= read -r l; do echo "::error title=Test::${l:0:400}"; done || true
           grep -q "OK (1 test)" instrument.txt && echo "::notice title=Emulator-Test API ${{ matrix.api }}::Durchlauf erfolgreich" || { echo "::error title=Emulator-Test::Durchlauf fehlgeschlagen"; exit 1; }
 
       - name: Screenshots hochladen
