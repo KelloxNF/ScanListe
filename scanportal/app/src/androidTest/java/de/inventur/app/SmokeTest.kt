@@ -234,6 +234,27 @@ class SmokeTest {
             assertEquals(1, de.scanliste.app.ListStore.load(ctx, pal.id)!!.rows.size)
         }
 
+        // Packliste-Dialog: Kunde mit Vorschlägen (zuletzt benutzt + Kunden aus Inventuren)
+        de.scanliste.app.CustomerPicker.remember(ctx, "Musterfirma GmbH")
+        ActivityScenario.launch<de.scanliste.app.ListActivity>(gxIntent).use { sc ->
+            instr.waitForIdleSync(); Thread.sleep(400)
+            var dialog: androidx.appcompat.app.AlertDialog? = null
+            sc.onActivity { dialog = it.tools.packList() }
+            instr.waitForIdleSync(); Thread.sleep(800)
+            sc.onActivity {
+                // Feld suchen und Vorschläge aufklappen
+                fun find(v: android.view.View): android.widget.AutoCompleteTextView? = when (v) {
+                    is android.widget.AutoCompleteTextView -> v
+                    is android.view.ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { find(v.getChildAt(it)) }
+                    else -> null
+                }
+                dialog?.window?.decorView?.let(::find)?.let { f -> f.requestFocus(); f.showDropDown() }
+            }
+            instr.waitForIdleSync(); Thread.sleep(800)
+            shot("0k_packliste_kunde")
+        }
+        assertEquals("Musterfirma GmbH", de.scanliste.app.CustomerPicker.recent(ctx).first())
+
         // Vorlage und Folgename
         val tpl = de.scanliste.app.ListTemplate.of(de.scanliste.app.ListStore.load(ctx, gx.id)!!, "Genexis-Palette 5")
         de.scanliste.app.TemplateStore.put(ctx, tpl)

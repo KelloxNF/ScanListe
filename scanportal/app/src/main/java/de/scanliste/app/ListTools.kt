@@ -213,8 +213,8 @@ class ListTools(private val activity: ListActivity) {
     // ------------------------------------------------------------ Packliste (PDF)
 
     /** Kopfdaten abfragen, dann Packliste als PDF teilen oder auf dem Gerät speichern. */
-    fun packList() {
-        if (list.rows.none { r -> r.cells.any { it.isNotEmpty() } }) { toast("Die Liste ist leer."); return }
+    fun packList(): AlertDialog? {
+        if (list.rows.none { r -> r.cells.any { it.isNotEmpty() } }) { toast("Die Liste ist leer."); return null }
         val prefs = activity.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
         val box = form()
         box.addView(label("Blatt zum Beilegen zur Palette: Kopf mit Bezeichnung, Kunde, Datum und Anzahl, darunter alle Werte der Liste.", 0).apply { alpha = 0.7f })
@@ -232,7 +232,7 @@ class ListTools(private val activity: ListActivity) {
             CustomerPicker.remember(activity, c)
             return PackInfo(title.text.toString().trim().ifEmpty { list.name }, c, note.text.toString().trim(), de.inventur.app.Settings.sender(activity))
         }
-        AlertDialog.Builder(activity)
+        return AlertDialog.Builder(activity)
             .setTitle("Packliste (PDF)")
             .setView(ScrollView(activity).apply { addView(box) })
             .setPositiveButton("Teilen") { _, _ -> sharePack(info()) }

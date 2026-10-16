@@ -67,7 +67,7 @@ class ListActivity : AppCompatActivity() {
         }
     }
 
-    private val tools = ListTools(this)
+    internal val tools = ListTools(this)
 
     private val expectedLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) tools.loadExpected(uri) }
