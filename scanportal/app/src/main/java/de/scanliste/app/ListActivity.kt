@@ -38,6 +38,7 @@ class ListActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_ID = "list_id"
+        private const val STATE_PACK = "pending_pack"
     }
 
     internal lateinit var list: ScanList
@@ -69,6 +70,19 @@ class ListActivity : AppCompatActivity() {
 
     private val expectedLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) tools.loadExpected(uri) }
+
+    /** Werte aller anderen Listen (für die Warnung „steht auch in Liste …“), im Hintergrund geladen. */
+    @Volatile private var others: Map<String, Seen> = emptyMap()
+
+    /** Kopfdaten der Packliste, bis der Speicherort gewählt ist. */
+    private var pendingPack: PackInfo? = null
+
+    private val packLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+            val info = pendingPack
+            pendingPack = null
+            if (uri != null && info != null) writePack(uri, info)
+        }
 
     private val exportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
@@ -113,6 +127,18 @@ class ListActivity : AppCompatActivity() {
         tones = Tones(this)
         updateStatus()
         scrollToEnd()
+
+        savedInstanceState?.getStringArray(STATE_PACK)?.let { pendingPack = PackInfo(it[0], it[1], it[2], it[3]) }
+        val id = list.id
+        Thread {
+            val index = runCatching { OtherLists.load(applicationContext, id) }.getOrDefault(emptyMap())
+            others = index
+        }.start()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingPack?.let { outState.putStringArray(STATE_PACK, arrayOf(it.title, it.customer, it.note, it.sender)) }
     }
 
     override fun onResume() {
@@ -187,8 +213,14 @@ class ListActivity : AppCompatActivity() {
                 val typeInfo = if (type != null) " ($type)" else ""
                 val many = ScanList.splitValues(raw).size
                 val hint = if (many > 1 && list.columns.size == 2) " · QR-Code mit $many Werten in einer Zelle – für Paare ⋮ → Multidata-QR-Code" else ""
-                showFeedback("✓ ${short(raw)}$typeInfo$hint${targetNote()}", error = false)
-                signalOk()
+                val warn = OtherLists.warning(others, listOf(list.rows[result.row].cells[result.col]))
+                if (warn != null) {
+                    showFeedback("$warn${targetNote()}", error = false, warn = true)
+                    tones.error()
+                } else {
+                    showFeedback("✓ ${short(raw)}$typeInfo$hint${targetNote()}", error = false)
+                    signalOk()
+                }
                 scrollToEnd()
                 updateStatus()
                 true
@@ -221,8 +253,15 @@ class ListActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
                 val range = if (r.rows == 1) "Zeile ${r.firstRow + 1}" else "Zeilen ${r.firstRow + 1}–${r.firstRow + r.rows}"
                 val skip = if (r.skipped > 0) " · ${r.skipped} schon erfasste übersprungen" else ""
-                showFeedback("✓ ${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range$skip${targetNote()}", error = false)
-                signalOk()
+                val added = (r.firstRow until r.firstRow + r.rows).flatMap { list.rows[it].cells }
+                val warn = OtherLists.warning(others, added)
+                if (warn != null) {
+                    showFeedback("${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range · $warn${targetNote()}", error = false, warn = true)
+                    tones.error()
+                } else {
+                    showFeedback("✓ ${r.rows} ${if (r.rows == 1) "Paar" else "Paare"} → $range$skip${targetNote()}", error = false)
+                    signalOk()
+                }
                 scrollToEnd()
                 updateStatus()
                 return true
@@ -277,11 +316,15 @@ class ListActivity : AppCompatActivity() {
         statusText.text = parts.joinToString(" · ")
     }
 
-    internal fun showFeedback(text: String, error: Boolean) {
+    /** Rückmeldeleiste: rot = abgelehnt, orange = übernommen mit Warnung, grün = übernommen. */
+    internal fun showFeedback(text: String, error: Boolean, warn: Boolean = false) {
         feedbackText.text = text
-        feedbackText.setBackgroundColor(
-            ContextCompat.getColor(this, if (error) R.color.feedback_error else R.color.feedback_ok),
-        )
+        val color = when {
+            error -> R.color.feedback_error
+            warn -> R.color.feedback_warn
+            else -> R.color.feedback_ok
+        }
+        feedbackText.setBackgroundColor(ContextCompat.getColor(this, color))
     }
 
     private fun scrollToEnd() {
@@ -341,6 +384,26 @@ class ListActivity : AppCompatActivity() {
         }
     }
 
+    /** Packliste: Speicherort wählen lassen ([ListTools.packList] fragt vorher die Kopfdaten ab). */
+    internal fun savePack(info: PackInfo) {
+        pendingPack = info
+        packLauncher.launch(ListTools.packFileName(info.title))
+    }
+
+    private fun writePack(uri: Uri, info: PackInfo) {
+        val copy = tools.snapshot()
+        Thread {
+            val result = runCatching {
+                contentResolver.openOutputStream(uri, "wt")?.use { PackList.write(copy, info, it) } ?: error("Datei nicht beschreibbar")
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { Toast.makeText(this, "Packliste gespeichert", Toast.LENGTH_SHORT).show() }
+                    .onFailure { Toast.makeText(this, "Speichern fehlgeschlagen: ${it.message}", Toast.LENGTH_LONG).show() }
+            }
+        }.start()
+    }
+
     private fun share() {
         try {
             Share.send(this, Csv.fileName(list), "text/csv", list.name) { Csv.write(it, list) }
@@ -368,6 +431,7 @@ class ListActivity : AppCompatActivity() {
         R.id.action_undo -> { undo(); true }
         R.id.action_export -> { exportLauncher.launch(Csv.fileName(list)); true }
         R.id.action_share -> { share(); true }
+        R.id.action_packlist -> { tools.packList(); true }
         R.id.action_genexis -> { toggleGenexis(); true }
         R.id.action_rules -> { tools.editRules(); true }
         R.id.action_target -> { tools.editTarget(); true }

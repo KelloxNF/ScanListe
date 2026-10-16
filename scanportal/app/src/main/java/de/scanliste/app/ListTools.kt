@@ -209,4 +209,68 @@ class ListTools(private val activity: ListActivity) {
             .setNegativeButton("Abbrechen", null)
             .show()
     }
+
+    // ------------------------------------------------------------ Packliste (PDF)
+
+    /** Kopfdaten abfragen, dann Packliste als PDF teilen oder auf dem Gerät speichern. */
+    fun packList() {
+        if (list.rows.none { r -> r.cells.any { it.isNotEmpty() } }) { toast("Die Liste ist leer."); return }
+        val prefs = activity.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+        val box = form()
+        box.addView(label("Blatt zum Beilegen zur Palette: Kopf mit Bezeichnung, Kunde, Datum und Anzahl, darunter alle Werte der Liste.", 0).apply { alpha = 0.7f })
+        box.addView(label("Bezeichnung (z. B. Palette)"))
+        val title = plain("z. B. Palette 3", list.name)
+        box.addView(title)
+        box.addView(label("Kunde / Empfänger"))
+        val customer = plain("z. B. Musterfirma GmbH", prefs.getString(PREF_CUSTOMER, "") ?: "")
+        box.addView(customer)
+        box.addView(label("Bemerkung (optional)"))
+        val note = plain("z. B. Lieferschein 4711", "")
+        box.addView(note)
+        fun info(): PackInfo {
+            val c = customer.text.toString().trim()
+            prefs.edit().putString(PREF_CUSTOMER, c).apply()
+            return PackInfo(title.text.toString().trim().ifEmpty { list.name }, c, note.text.toString().trim(), de.inventur.app.Settings.sender(activity))
+        }
+        AlertDialog.Builder(activity)
+            .setTitle("Packliste (PDF)")
+            .setView(ScrollView(activity).apply { addView(box) })
+            .setPositiveButton("Teilen") { _, _ -> sharePack(info()) }
+            .setNeutralButton("Speichern …") { _, _ -> activity.savePack(info()) }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun plain(hint: String, value: String) = EditText(activity).apply {
+        this.hint = hint
+        setText(value)
+        maxLines = 1
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+    }
+
+    /** Momentaufnahme, damit die PDF im Hintergrund entsteht, während weiter gescannt werden kann. */
+    internal fun snapshot(): ScanList = ListStore.fromJson(ListStore.toJson(list))
+
+    private fun sharePack(info: PackInfo) {
+        val copy = snapshot()
+        val name = packFileName(info.title)
+        Thread {
+            val file = runCatching { Share.prepare(activity, name) { PackList.write(copy, info, it) } }
+            activity.runOnUiThread {
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                file.onSuccess { Share.open(activity, it, "application/pdf", "Packliste – ${info.title}") }
+                    .onFailure { toast("Packliste fehlgeschlagen: ${it.message}") }
+            }
+        }.start()
+    }
+
+    companion object {
+        private const val PREF_CUSTOMER = "pack_customer"
+
+        fun packFileName(title: String): String {
+            val safe = title.replace(Regex("[^A-Za-z0-9ÄÖÜäöüß_-]+"), "_").trim('_').ifEmpty { "Liste" }
+            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY).format(java.util.Date())
+            return "Packliste_${safe}_$stamp.pdf"
+        }
+    }
 }

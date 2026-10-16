@@ -8,6 +8,7 @@
     <color name="next_cell">#552F80ED</color>
     <color name="feedback_idle">#5A6472</color>
     <color name="feedback_ok">#2E7D32</color>
+    <color name="feedback_warn">#B25E00</color>
     <color name="feedback_error">#C62828</color>
     <color name="icon_bg">#1F5FAD</color>
 </resources>

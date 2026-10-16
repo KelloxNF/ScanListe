@@ -158,6 +158,32 @@ class SmokeTest {
         assertTrue(sum.lists >= 1)
         de.scanportal.app.Backup.apply(ctx)
         assertEquals(5, de.scanliste.app.ListStore.load(ctx, gx.id)!!.rows.size)
+
+        // Doppelte Geräte über alle Listen: Wert aus „Genexis Test“ in neuer Liste → übernommen, aber Warnung
+        val pal = de.scanliste.app.ScanList(de.scanliste.app.ListStore.newId(), "Palette 4", mutableListOf("Seriennummer"), withTimestamp = false)
+        de.scanliste.app.ListStore.save(ctx, pal)
+        val palIntent = Intent(ctx, de.scanliste.app.ListActivity::class.java).putExtra(de.scanliste.app.ListActivity.EXTRA_ID, pal.id)
+        ActivityScenario.launch<de.scanliste.app.ListActivity>(palIntent).use {
+            instr.waitForIdleSync(); Thread.sleep(1000)
+            ctx.sendBroadcast(Intent(DataWedge.SCAN_ACTION).setPackage(ctx.packageName)
+                .putExtra(DataWedge.EXTRA_DATA, "GNXS05DFA614"))
+            instr.waitForIdleSync(); Thread.sleep(600)
+            shot("0e_doppelt_andere_liste")
+            assertEquals(1, de.scanliste.app.ListStore.load(ctx, pal.id)!!.rows.size)
+        }
+        val idx = de.scanliste.app.OtherLists.load(ctx, pal.id)
+        assertEquals("Genexis Test", idx["GNXS05DFA614"]?.listName)
+
+        // Packliste (PDF): kurze Liste auf einer Seite, lange über mehrere Seiten
+        val info = de.scanliste.app.PackInfo("Palette 3", "Testkunde GmbH", "Lieferschein 4711", Settings.sender(ctx))
+        val pack = File(shots, "packliste.pdf")
+        pack.outputStream().use { de.scanliste.app.PackList.write(de.scanliste.app.ListStore.load(ctx, gx.id)!!, info, it) }
+        assertEquals(1, renderPdf(pack, "pdf_packliste"))
+        val big2 = de.scanliste.app.ScanList("big", "Palette 9", mutableListOf("Seriennummer", "PON-SN"), withTimestamp = false)
+        for (i in 1..90) { big2.add("GNXS05DF%04d".format(i)); big2.add("Z.02254%05d".format(i)) }
+        val packBig = File(shots, "packliste_lang.pdf")
+        packBig.outputStream().use { de.scanliste.app.PackList.write(big2, info.copy(note = ""), it) }
+        assertEquals(de.scanliste.app.PackList.paginate(90).size, renderPdf(packBig, "pdf_packliste_lang"))
         assertEquals(inv.id, InventoryStore.load(ctx, inv.id)!!.id)
         ActivityScenario.launch(MainActivity::class.java).use { shot("1_uebersicht") }
         ActivityScenario.launch(EditActivity::class.java).use { shot("2_neue_inventur") }
