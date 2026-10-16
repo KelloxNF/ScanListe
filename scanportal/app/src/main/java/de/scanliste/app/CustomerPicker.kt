@@ -47,7 +47,9 @@ object CustomerPicker {
             setAdapter(ArrayAdapter(activity, android.R.layout.simple_dropdown_item_1line, names))
         }
         show(recent(activity))
+        // Der erste Tipp gibt dem Feld nur den Fokus (kein Klick) – deshalb auch beim Fokus aufklappen
         setOnClickListener { if (adapter != null && adapter.count > 0) showDropDown() }
+        setOnFocusChangeListener { v, has -> if (has) v.post { if (adapter != null && adapter.count > 0 && windowToken != null) showDropDown() } }
         // Inventur-Kunden im Hintergrund dazuladen (liest alle Inventuren)
         val ctx = activity.applicationContext
         Thread {

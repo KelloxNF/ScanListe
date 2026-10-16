@@ -35,12 +35,32 @@ object InventoryStore {
         file(ctx, id).delete()
     }
 
-    /** Bekannte Kunden aus früheren Inventuren (neueste Adresse gewinnt). */
-    fun customers(ctx: Context): List<Customer> =
-        all(ctx).sortedByDescending { it.updated }
+    /** Kunde und Änderungszeit je Inventur-Datei; unveränderte Dateien werden nicht erneut eingelesen. */
+    private class CustomerEntry(val modified: Long, val length: Long, val customer: Customer, val updated: Long)
+    private val customerCache = HashMap<String, CustomerEntry>()
+
+    /**
+     * Bekannte Kunden aus früheren Inventuren (neueste Adresse gewinnt). Wird bei jedem Kunden-Feld
+     * (Neue Inventur, Packliste) gebraucht – dank Zwischenspeicher wird nur Geändertes neu gelesen.
+     */
+    fun customers(ctx: Context): List<Customer> = synchronized(customerCache) {
+        val files = dir(ctx).listFiles { f -> f.isFile && f.extension == "json" } ?: emptyArray()
+        val entries = files.mapNotNull { f ->
+            val m = f.lastModified(); val l = f.length()
+            customerCache[f.name]?.takeIf { it.modified == m && it.length == l }
+                ?: runCatching {
+                    val o = JSONObject(f.readText())
+                    val c = o.getJSONObject("customer")
+                    CustomerEntry(m, l, Customer(c.optString("name"), c.optString("street"), c.optString("city")), o.optLong("updated"))
+                }.getOrNull()?.also { customerCache[f.name] = it }
+        }
+        customerCache.keys.retainAll(files.map { it.name }.toSet())
+        entries.sortedByDescending { it.updated }
             .distinctBy { it.customer.name.trim().lowercase() }
             .map { it.customer }
+            .filter { it.name.isNotBlank() }
             .sortedBy { it.name.lowercase() }
+    }
 
     fun writeAtomic(target: File, text: String) = de.scanportal.app.SafeFile.write(target, text)
 
