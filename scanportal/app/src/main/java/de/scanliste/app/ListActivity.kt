@@ -391,7 +391,7 @@ class ListActivity : AppCompatActivity() {
     }
 
     private fun writePack(uri: Uri, info: PackInfo) {
-        val copy = tools.snapshot()
+        val copy = PackSheet.of(list)
         Thread {
             val result = runCatching {
                 contentResolver.openOutputStream(uri, "wt")?.use { PackList.write(copy, info, it) } ?: error("Datei nicht beschreibbar")

@@ -45,6 +45,12 @@ object ListStore {
         }.sortedByDescending { it.updated }
     }
 
+    /** Alle Listendateien (für den Abgleich über alle Listen). */
+    internal fun files(ctx: Context): List<File> =
+        dir(ctx).listFiles { f -> f.isFile && f.extension == "json" }?.toList() ?: emptyList()
+
+    internal fun loadFile(f: File): ScanList? = runCatching { fromJson(JSONObject(f.readText())) }.getOrNull()
+
     fun load(ctx: Context, id: String): ScanList? {
         val f = file(ctx, id)
         if (!f.exists()) return null

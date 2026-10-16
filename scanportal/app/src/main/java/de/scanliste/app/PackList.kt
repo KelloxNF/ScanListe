@@ -12,6 +12,17 @@ import java.util.Locale
 /** Angaben für den Kopf der Packliste. */
 data class PackInfo(val title: String, val customer: String, val note: String, val sender: String)
 
+/** Unveränderliche Kopie der Listendaten, damit die PDF im Hintergrund entstehen kann. */
+class PackSheet(val columns: List<String>, val rows: List<List<String>>) {
+    companion object {
+        /** Nur Zeilen mit mindestens einem Wert; billig genug für den Haupt-Thread. */
+        fun of(list: ScanList) = PackSheet(
+            list.columns.toList(),
+            list.rows.filter { r -> r.cells.any { it.isNotEmpty() } }.map { it.cells.toList() },
+        )
+    }
+}
+
 /**
  * Packliste als PDF (A4 hoch): Kopf mit Bezeichnung, Kunde, Datum und Anzahl, dann alle Zeilen der Liste,
  * am Ende Gesamtzahl und Unterschriften „Gepackt von“ / „Geprüft von“. Zum Beilegen zur Palette.
@@ -59,19 +70,20 @@ object PackList {
             textAlign = align
         }
 
+    /** Kürzt [text] auf [width] mit „…“ – per breakText in einem Schritt statt Zeichen für Zeichen. */
     private fun fit(text: String, p: Paint, width: Float): String {
         val one = text.replace('\n', ' ').replace('\r', ' ')
         if (p.measureText(one) <= width) return one
-        var t = one
-        while (t.isNotEmpty() && p.measureText("$t…") > width) t = t.dropLast(1)
-        return "$t…"
+        val n = p.breakText(one, true, (width - p.measureText("…")).coerceAtLeast(0f), null)
+        return one.take(n) + "…"
     }
 
-    fun write(list: ScanList, info: PackInfo, out: OutputStream) {
+    fun write(sheet: PackSheet, info: PackInfo, out: OutputStream) {
         val now = Date()
         val day = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(now)
         val stamp = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(now)
-        val rows = list.rows.filter { r -> r.cells.any { it.isNotEmpty() } }
+        val rows = sheet.rows
+        val columns = sheet.columns.ifEmpty { listOf("Wert") }
         val pages = paginate(rows.size)
 
         val small = paint(8f, color = Color.DKGRAY)
@@ -86,9 +98,10 @@ object PackList {
         val line = Paint().apply { color = Color.BLACK; strokeWidth = 0.7f }
 
         val nrW = 34f
-        val colW = (W - 2 * M - nrW) / list.columns.size
+        val colW = (W - 2 * M - nrW) / columns.size
 
         val doc = PdfDocument()
+        try {
         pages.forEachIndexed { pi, (start, count) ->
             val page = doc.startPage(PdfDocument.PageInfo.Builder(W.toInt(), H.toInt(), pi + 1).create())
             val c = page.canvas
@@ -117,7 +130,7 @@ object PackList {
                 // Tabellenkopf
                 c.drawRect(M, y - 11f, W - M, y + 4f, headFill)
                 c.drawText("Nr.", M + nrW - 4f, y, Paint(head).apply { textAlign = Paint.Align.RIGHT })
-                list.columns.forEachIndexed { i, name ->
+                columns.forEachIndexed { i, name ->
                     c.drawText(fit(name, head, colW - 8f), M + nrW + i * colW + 6f, y, head)
                 }
                 y += ROW
@@ -125,8 +138,8 @@ object PackList {
                     val r = rows[start + k]
                     if ((start + k) % 2 == 1) c.drawRect(M, y - 11f, W - M, y + 4f, stripe)
                     c.drawText((start + k + 1).toString(), M + nrW - 4f, y, num)
-                    r.cells.forEachIndexed { i, v ->
-                        if (i < list.columns.size) c.drawText(fit(v, cell, colW - 8f), M + nrW + i * colW + 6f, y, cell)
+                    r.forEachIndexed { i, v ->
+                        if (i < columns.size) c.drawText(fit(v, cell, colW - 8f), M + nrW + i * colW + 6f, y, cell)
                     }
                     c.drawLine(M, y + 4f, W - M, y + 4f, grid)
                     y += ROW
@@ -147,6 +160,8 @@ object PackList {
             doc.finishPage(page)
         }
         doc.writeTo(out)
-        doc.close()
+        } finally {
+            doc.close()   // auch bei Fehler (z. B. Speicher voll) die Seitenpuffer freigeben
+        }
     }
 }

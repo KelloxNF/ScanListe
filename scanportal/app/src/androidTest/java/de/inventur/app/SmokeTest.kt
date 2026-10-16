@@ -177,13 +177,14 @@ class SmokeTest {
         // Packliste (PDF): kurze Liste auf einer Seite, lange über mehrere Seiten
         val info = de.scanliste.app.PackInfo("Palette 3", "Testkunde GmbH", "Lieferschein 4711", Settings.sender(ctx))
         val pack = File(shots, "packliste.pdf")
-        pack.outputStream().use { de.scanliste.app.PackList.write(de.scanliste.app.ListStore.load(ctx, gx.id)!!, info, it) }
+        pack.outputStream().use { de.scanliste.app.PackList.write(de.scanliste.app.PackSheet.of(de.scanliste.app.ListStore.load(ctx, gx.id)!!), info, it) }
         assertEquals(1, renderPdf(pack, "pdf_packliste"))
         val big2 = de.scanliste.app.ScanList("big", "Palette 9", mutableListOf("Seriennummer", "PON-SN"), withTimestamp = false)
         for (i in 1..90) { big2.add("GNXS05DF%04d".format(i)); big2.add("Z.02254%05d".format(i)) }
+        big2.add("SEHR-LANGER-WERT-" + "X".repeat(120))   // wird in der Zelle mit „…“ gekürzt
         val packBig = File(shots, "packliste_lang.pdf")
-        packBig.outputStream().use { de.scanliste.app.PackList.write(big2, info.copy(note = ""), it) }
-        assertEquals(de.scanliste.app.PackList.paginate(90).size, renderPdf(packBig, "pdf_packliste_lang"))
+        packBig.outputStream().use { de.scanliste.app.PackList.write(de.scanliste.app.PackSheet.of(big2), info.copy(note = ""), it) }
+        assertEquals(de.scanliste.app.PackList.paginate(91).size, renderPdf(packBig, "pdf_packliste_lang"))
         assertEquals(inv.id, InventoryStore.load(ctx, inv.id)!!.id)
         ActivityScenario.launch(MainActivity::class.java).use { shot("1_uebersicht") }
         ActivityScenario.launch(EditActivity::class.java).use { shot("2_neue_inventur") }

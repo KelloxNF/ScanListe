@@ -14,21 +14,48 @@ data class Seen(val listName: String, val row: Int, val time: Long)
  */
 object OtherLists {
 
-    /** Reine Funktion (testbar): alle Werte aller Listen außer [exceptId]. Ältester Fund gewinnt. */
-    fun index(lists: List<ScanList>, exceptId: String): Map<String, Seen> {
-        val map = HashMap<String, Seen>()
-        for (l in lists.sortedBy { it.created }) {
-            if (l.id == exceptId) continue
-            l.rows.forEachIndexed { r, row ->
-                for (v in row.cells) if (v.isNotEmpty() && v !in map) map[v] = Seen(l.name, r, row.time)
-            }
+    /** Werte einer Liste in kompakter Form (ohne Regeln, Soll-Liste usw.). */
+    private class Values(val id: String, val created: Long, val hits: List<Pair<String, Seen>>)
+
+    private class Cached(val modified: Long, val length: Long, val values: Values)
+
+    /** Je Listendatei die zuletzt gelesenen Werte – unveränderte Dateien werden nicht erneut eingelesen. */
+    private val cache = HashMap<String, Cached>()
+
+    private fun valuesOf(l: ScanList): Values {
+        val hits = ArrayList<Pair<String, Seen>>()
+        l.rows.forEachIndexed { r, row ->
+            for (v in row.cells) if (v.isNotEmpty()) hits += v to Seen(l.name, r, row.time)
         }
+        return Values(l.id, l.created, hits)
+    }
+
+    /** Älteste Liste zuerst, damit bei mehreren Treffern die erste Erfassung genannt wird. */
+    private fun merge(all: List<Values>): Map<String, Seen> {
+        val map = HashMap<String, Seen>()
+        for (l in all.sortedBy { it.created }) for ((v, s) in l.hits) if (v !in map) map[v] = s
         return map
     }
 
-    /** Lädt alle anderen Listen vom Gerät (im Hintergrund aufrufen). */
-    fun load(ctx: Context, exceptId: String): Map<String, Seen> =
-        index(ListStore.infos(ctx).filter { it.id != exceptId }.mapNotNull { ListStore.load(ctx, it.id) }, exceptId)
+    /** Reine Funktion (testbar): alle Werte aller Listen außer [exceptId]. */
+    fun index(lists: List<ScanList>, exceptId: String): Map<String, Seen> =
+        merge(lists.filter { it.id != exceptId }.map(::valuesOf))
+
+    /** Liest alle anderen Listen vom Gerät (im Hintergrund aufrufen); nur geänderte Dateien werden neu geparst. */
+    fun load(ctx: Context, exceptId: String): Map<String, Seen> = synchronized(cache) {
+        val present = HashSet<String>()
+        val all = ListStore.files(ctx).mapNotNull { f ->
+            val id = f.nameWithoutExtension
+            present += id
+            if (id == exceptId) return@mapNotNull null
+            val modified = f.lastModified()
+            val length = f.length()
+            cache[id]?.takeIf { it.modified == modified && it.length == length }?.values
+                ?: ListStore.loadFile(f)?.let(::valuesOf)?.also { cache[id] = Cached(modified, length, it) }
+        }
+        cache.keys.retainAll(present)   // gelöschte Listen vergessen
+        merge(all)
+    }
 
     /** Treffer für die neu übernommenen [values]; null, wenn keiner in einer anderen Liste steht. */
     fun warning(index: Map<String, Seen>, values: List<String>): String? {

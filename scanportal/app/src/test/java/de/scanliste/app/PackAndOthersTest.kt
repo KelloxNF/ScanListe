@@ -47,6 +47,16 @@ class PackAndOthersTest {
         }
     }
 
+    @Test fun packSheetIsACopyWithoutEmptyRows() {
+        val l = ScanList("p", "P", mutableListOf("SN", "PON"), withTimestamp = false)
+        l.add("A"); l.add("B"); l.add("C")
+        l.rows.add(ScanRow(mutableListOf("", ""), 0))
+        val sheet = PackSheet.of(l)
+        assertEquals(listOf(listOf("A", "B"), listOf("C", "")), sheet.rows)
+        l.rows[0].cells[0] = "geändert"
+        assertEquals("A", sheet.rows[0][0])   // spätere Scans ändern die Kopie nicht
+    }
+
     @Test fun packFileNameIsSafe() {
         assertTrue(ListTools.packFileName("Palette 3 / Kunde").matches(Regex("Packliste_Palette_3_Kunde_\\d{4}-\\d{2}-\\d{2}\\.pdf")))
     }

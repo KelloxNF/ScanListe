@@ -248,11 +248,8 @@ class ListTools(private val activity: ListActivity) {
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
     }
 
-    /** Momentaufnahme, damit die PDF im Hintergrund entsteht, während weiter gescannt werden kann. */
-    internal fun snapshot(): ScanList = ListStore.fromJson(ListStore.toJson(list))
-
     private fun sharePack(info: PackInfo) {
-        val copy = snapshot()
+        val copy = PackSheet.of(list)
         val name = packFileName(info.title)
         Thread {
             val file = runCatching { Share.prepare(activity, name) { PackList.write(copy, info, it) } }
