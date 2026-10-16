@@ -17,10 +17,14 @@ Jede Version ist mit demselben Schlüssel (`app/scanportal.keystore`) signiert. 
 ## Scannen (Listen)
 - Spalten frei wählbar; bei mehreren Spalten füllt jeder Scan die Zeile von links nach rechts.
 - Doppelte Werte werden abgewiesen (Fehlerton, Sprung zur Zeile).
+- Steht ein Wert schon in einer **anderen** Liste, wird er übernommen, aber orange gewarnt
+  („steht auch in Liste ‚Palette 3‘ (Zeile 12, 14.10.)“).
 - **Multidata-QR-Code** (beim Anlegen oder ⋮ in einer Liste mit genau 2 Spalten): Ein QR-Code mit mehreren
   Werten wird paarweise auf Zeilen verteilt (1.+2. Wert → Zeile 1 usw.). Alles oder nichts bei ungerader
   Anzahl, halbem Paar oder anderem Partner; einzelne Barcodes werden abgelehnt; bereits erfasste Paare
   übersprungen. „Rückgängig“ nimmt immer ganze Zeilen zurück.
+- **Packliste (PDF)** (⋮ in der Liste): A4-Blatt zum Beilegen zur Palette mit Bezeichnung, Kunde, Datum,
+  Anzahl, Bemerkung, allen Werten, Seitenzahlen und Unterschriftslinien „Gepackt von / Geprüft von“.
 - CSV: Semikolon, UTF-8 mit BOM, öffnet direkt in deutschem Excel; Schutz vor Formel-Einschleusung.
 
 ## Inventur
@@ -47,5 +51,5 @@ GitHub Actions baut bei jedem Push auf `scan-portal`:
 | Ordner | Inhalt |
 |---|---|
 | `de/scanportal/app` | Startbildschirm, Scanner-Einrichtung, gemeinsame Bausteine (sicheres Speichern, Töne, CSV, Teilen) |
-| `de/scanliste/app` | Scannen: Listen, Multidata-QR-Code, CSV |
+| `de/scanliste/app` | Scannen: Listen, Multidata-QR-Code, Warnung über andere Listen (`OtherLists`), Packliste (`PackList`), CSV |
 | `de/inventur/app` | Inventur: Import, Zähl-Logik (`CountSession`), Zähl-Ansicht (`OverviewScreen`, `ArticleScreen`, `ArticleSheets`), PDF-Dokumente, CSV |

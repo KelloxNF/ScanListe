@@ -135,7 +135,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <h1>Scan-Portal</h1>
       <p class="lead">Wo in der App was passiert, wie es technisch umgesetzt ist und warum es so gebaut wurde. Für Anwender, die genau wissen wollen, was die App tut, und für jeden, der sie später weiterentwickelt.</p>
       <div class="facts">
-        <span>Stand <b>Version 1.26</b> · 16.10.2026</span>
+        <span>Stand <b>Version 1.27</b> · 16.10.2026</span>
         <span>App-Kennung <b class="mono">de.scanportal.app</b></span>
         <span>Android <b>8.0+</b> (minSdk 26, targetSdk 34)</span>
         <span>Komplett <b>offline</b></span>
@@ -257,6 +257,20 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
         </dl>
       </article>
 
+      <article class="feature" id="andere-listen" data-title="Gerät in anderer Liste">
+        <h3>Warnung: Gerät steht in einer anderen Liste <span class="where">scanliste/OtherLists.kt · ListActivity.handleValue</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>Automatisch bei jedem Scan in einer Liste, auch beim Multidata-QR-Code.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Steht der gescannte Wert schon in einer <em>anderen</em> Liste, wird er trotzdem übernommen. Die Rückmeldeleiste wird <b>orange</b>, es ertönt der Fehlerton, z. B. <code>⚠ Übernommen, aber Achtung: "GNXS05DFA614" steht auch in Liste ‚Palette 3‘ (Zeile 12, 14.10.)</code>.</li>
+            <li>Bei einem Multidata-QR-Code nennt die Meldung den ersten Treffer und die Zahl der weiteren („+2 weitere“).</li>
+            <li>Ein Duplikat in <em>derselben</em> Liste wird wie bisher rot abgelehnt.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Beim Öffnen der Liste lädt ein Hintergrund-Thread alle anderen Listen und baut einen Index Wert → (Listenname, Zeile, Erfassungszeit). Gibt es einen Wert mehrfach, gewinnt die älteste Liste. Die Suche je Scan ist ein Nachschlagen im Index, also ohne Verzögerung, auch bei vielen Listen. Groß- und Kleinschreibung zählt wie innerhalb einer Liste.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Ein Gerät, das versehentlich auf zwei Paletten landet, fällt sonst erst beim Kunden auf. Gesperrt wird nicht, weil dasselbe Gerät berechtigt in mehreren Listen stehen kann, etwa in einer Eingangs- und einer Ausgangsliste.</p></dd>
+        </dl>
+      </article>
+
       <article class="feature" id="multidata" data-title="Multidata-QR-Code">
         <h3>Multidata-QR-Code <span class="where">ScanList.addPairs · splitValues</span></h3>
         <dl class="wwww">
@@ -330,6 +344,21 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <li>Beim Speichern wird eine vorhandene Datei vollständig ersetzt; zum Teilen liegt die Datei einen Tag im App-Cache.</li>
           </ul></dd>
           <dt class="why">Warum</dt><dd><p>Das Hochkomma verhindert, dass ein manipulierter Barcode in Excel eine Formel ausführt (CSV-Injection).</p></dd>
+        </dl>
+      </article>
+
+      <article class="feature" id="packliste" data-title="Packliste (PDF)">
+        <h3>Packliste als PDF <span class="where">scanliste/PackList.kt · ListTools.packList</span></h3>
+        <dl class="wwww">
+          <dt>Wo</dt><dd><p>In der Liste ⋮ → „Packliste (PDF) …“.</p></dd>
+          <dt>Was</dt><dd><ul>
+            <li>Dialog: Bezeichnung (vorbelegt mit dem Listennamen), Kunde / Empfänger (der zuletzt eingegebene wird vorgeschlagen), Bemerkung (optional). Dann „Teilen“ oder „Speichern …“.</li>
+            <li>A4-Blatt zum Beilegen zur Palette: Absenderzeile aus den Einstellungen, Titel „Packliste“, Kopf mit Bezeichnung, Kunde, Datum, Anzahl Geräte und Bemerkung, darunter eine Tabelle mit Nr. und allen Spalten der Liste.</li>
+            <li>Am Ende „Gesamt: n Geräte“ und zwei Unterschriftslinien „Gepackt von“ / „Geprüft von“; jede Seite hat eine Fußzeile mit „Seite x von y“.</li>
+            <li>Dateiname <code>Packliste_Bezeichnung_JJJJ-MM-TT.pdf</code>. Gezählt werden Zeilen; bei zwei Spalten (Seriennummer, PON-SN) ist eine Zeile ein Gerät.</li>
+          </ul></dd>
+          <dt>Wie</dt><dd><p>Androids <code>PdfDocument</code> zeichnet die Seiten, ganz ohne Internet. Erste Seite 36 Zeilen, Folgeseiten 47, Tabellenkopf auf jeder Seite wiederholt. Passen die Unterschriften nicht mehr unter die letzte Zeile, kommen sie auf eine eigene Seite. Die PDF entsteht im Hintergrund aus einer Kopie der Liste, man kann also weiterscannen.</p></dd>
+          <dt class="why">Warum</dt><dd><p>Mit dem Blatt kann der Empfänger die Palette ohne Datei prüfen, und die Unterschriften zeigen, wer gepackt und kontrolliert hat.</p></dd>
         </dl>
       </article>
     </section>
@@ -616,12 +645,14 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <tr><td><code>DataWedge</code></td><td>Scanner-Profil</td><td class="num">89</td></tr>
             <tr><td><code>SafeFile</code></td><td>sicheres Schreiben</td><td class="num">29</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/scanliste/app – Scannen</th></tr>
-            <tr><td><code>ListActivity</code></td><td>Liste, Scan-Verarbeitung, Rückmeldung, Menü</td><td class="num">454</td></tr>
+            <tr><td><code>ListActivity</code></td><td>Liste, Scan-Verarbeitung, Rückmeldung, Menü</td><td class="num">518</td></tr>
             <tr><td><code>ScanList</code></td><td>Datenmodell und Regeln: Erfassen, Multidata, Prüfungen, Rückgängig</td><td class="num">300</td></tr>
             <tr><td><code>MainActivity</code></td><td>Listen-Übersicht, Anlegen, Umbenennen, Löschen</td><td class="num">216</td></tr>
-            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste</td><td class="num">212</td></tr>
+            <tr><td><code>ListTools</code></td><td>Dialoge Formatprüfung, Zielmenge, Soll-Liste, Packliste</td><td class="num">276</td></tr>
+            <tr><td><code>PackList</code></td><td>Packliste als PDF, Seitenaufteilung</td><td class="num">152</td></tr>
             <tr><td><code>ListStore</code></td><td>Speichern/Laden der Listen</td><td class="num">167</td></tr>
             <tr><td><code>Csv</code></td><td>CSV-Aufbau und Dateiname</td><td class="num">50</td></tr>
+            <tr><td><code>OtherLists</code></td><td>Index aller anderen Listen für die Warnung</td><td class="num">42</td></tr>
             <tr><th colspan="3" style="text-transform:none;letter-spacing:0">de/inventur/app – Inventur</th></tr>
             <tr><td><code>Documents</code></td><td>Anschreiben, Zählliste (PDF), Ergebnis-CSV</td><td class="num">351</td></tr>
             <tr><td><code>CountActivity</code></td><td>verbindet Zähl-Teile, Scan-Routing, Menü</td><td class="num">288</td></tr>
@@ -649,8 +680,8 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
             <div class="tbl"><table>
               <thead><tr><th>Prüfung</th><th>Umfang</th></tr></thead>
               <tbody>
-                <tr><td>Unit-Tests (61)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, vollständiges Speichern/Laden</td></tr>
-                <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast und eine Datensicherung mit Einspielen</td></tr>
+                <tr><td>Unit-Tests (65)</td><td>Import mit echter Excel-Datei, Zähl-Logik inkl. „Speicher voll“, Rückgängig, Nachzählung, Option Bestand 0, Multidata, Formatprüfung, Soll-Liste, Zielmenge, Warnung über andere Listen, Seitenaufteilung der Packliste, vollständiges Speichern/Laden</td></tr>
+                <tr><td>Emulator-Test</td><td>Durchlauf aller Bildschirme auf Android 10 und 11, hell und dunkel, mit Screenshots und gerenderten PDFs; prüft Scans per echtem Broadcast, die Warnung „steht auch in Liste …“, Packlisten (eine und mehrere Seiten) und eine Datensicherung mit Einspielen</td></tr>
                 <tr><td>Lint</td><td>Androids Prüfwerkzeug bei jeder Änderung</td></tr>
                 <tr><td>Offline-Prüfung</td><td>Berechtigungen, Sicherung und Debug-Status der fertigen APK</td></tr>
               </tbody>
@@ -670,6 +701,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
         <tbody>
           <tr><td>Scan nicht gespeichert – bitte zuerst … öffnen</td><td>Auf diesem Bildschirm landet ein Scan nirgends.</td></tr>
           <tr><td>✗ Doppelt – … steht schon in Zeile …</td><td>Wert ist schon in der Liste.</td></tr>
+          <tr><td>⚠ Übernommen, aber Achtung: … steht auch in Liste …</td><td>Orange: Wert wurde übernommen, steht aber schon in einer anderen Liste. Prüfen; falls falsch, Rückgängig.</td></tr>
           <tr><td>✗ Kein Multidata-QR-Code …</td><td>Im Multidata-Modus nur QR-Codes mit mehreren Werten.</td></tr>
           <tr><td>Reihenfolge im QR-Code vertauscht</td><td>Paar passt nur andersherum zur Formatprüfung; QR-Code prüfen.</td></tr>
           <tr><td>… passt nicht zu … (beginnt mit …)</td><td>Formatprüfung; richtigen Barcode scannen oder Regel anpassen.</td></tr>
@@ -694,6 +726,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
       <div class="tbl"><table>
         <thead><tr><th>Version</th><th>Datum</th><th>Wichtigste Änderung</th></tr></thead>
         <tbody>
+          <tr><td class="num">1.27</td><td>16.10.2026</td><td>Warnung bei Geräten aus anderen Listen; Packliste als PDF</td></tr>
           <tr><td class="num">1.26</td><td>16.10.2026</td><td>Genexis-Scan heißt Multidata-QR-Code</td></tr>
           <tr><td class="num">1.24–1.25</td><td>16.10.2026</td><td>Datensicherung im Hintergrund</td></tr>
           <tr><td class="num">1.23</td><td>16.10.2026</td><td>Datensicherung, Formatprüfung, Soll-Liste, Zielmenge, Nachzählung</td></tr>
@@ -706,7 +739,7 @@ footer.end { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--ru
           <tr><td class="num">1.0–1.5</td><td>10.10.2026</td><td>ScanListe und Inventur vereint, Offline-Härtung, Fehlerrunden</td></tr>
         </tbody>
       </table></div>
-      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.26, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
+      <footer class="end">Scan-Portal · Technisches Handbuch · Stand Version 1.27, 16.10.2026. Die Anwender-Anleitung „Scan-Portal – Dokumentation“ beschreibt die Bedienung Schritt für Schritt.</footer>
     </section>
   </main>
 </div>
